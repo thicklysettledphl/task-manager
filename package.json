@@ -1,0 +1,53 @@
+{
+  "name": "work-tasks",
+  "version": "0.1.0",
+  "private": true,
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "electron-vite build",
+    "pack": "electron-vite build && electron-builder --dir",
+    "dist": "electron-vite build && electron-builder"
+  },
+  "build": {
+    "appId": "com.klaw.work-tasks",
+    "productName": "Work Tasks",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*"
+    ],
+    "mac": {
+      "target": {
+        "target": "dmg",
+        "arch": [
+          "arm64",
+          "x64"
+        ]
+      },
+      "category": "public.app-category.productivity"
+    }
+  },
+  "dependencies": {
+    "mammoth": "^1.8.0",
+    "pdf-parse": "^2.4.5",
+    "uuid": "^11.0.5"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4",
+    "@types/node": "^22",
+    "@types/pdf-parse": "^1.1.5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "@types/uuid": "^10",
+    "@vitejs/plugin-react": "^4",
+    "electron": "^34",
+    "electron-builder": "^25",
+    "electron-vite": "^3",
+    "react": "^19",
+    "react-dom": "^19",
+    "tailwindcss": "^4",
+    "typescript": "^5"
+  }
+}
