@@ -1,5 +1,8 @@
-import type { Task, Project } from '@/types'
+import type { Task, Project, Status, Priority } from '@/types'
 import { formatDate, isoToday } from '@/lib/utils'
+
+const STATUSES: Status[] = ['not-started', 'in-progress', 'done', 'blocked']
+const PRIORITIES: Priority[] = ['high', 'medium', 'low']
 
 const STATUS_LABELS: Record<string, string> = {
   'not-started': 'Not Started',
@@ -29,17 +32,37 @@ const PRIORITY_COLORS: Record<string, string> = {
 
 interface Props {
   task: Task
-  projects: Project[]   // all projects this task belongs to
+  projects: Project[]
   onClick: () => void
+  onReload: () => void
 }
 
-export default function TaskItem({ task, projects, onClick }: Props) {
+export default function TaskItem({ task, projects, onClick, onReload }: Props) {
   const today = isoToday()
   const overdue = task.status !== 'done' && task.dueDate < today
 
+  async function cycleStatus(e: React.MouseEvent) {
+    e.stopPropagation()
+    const idx = STATUSES.indexOf(task.status)
+    const next = STATUSES[(idx + 1) % STATUSES.length]
+    await window.api.updateTask(task.id, { status: next })
+    onReload()
+  }
+
+  async function cyclePriority(e: React.MouseEvent) {
+    e.stopPropagation()
+    const idx = PRIORITIES.indexOf(task.priority)
+    const next = PRIORITIES[(idx + 1) % PRIORITIES.length]
+    await window.api.updateTask(task.id, { priority: next })
+    onReload()
+  }
+
   return (
-    <button
+    <div
       onClick={onClick}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => e.key === 'Enter' && onClick()}
       className={`w-full text-left px-6 py-4 flex items-center gap-4 hover:bg-white/5 transition-colors cursor-pointer border-b border-white/5 ${
         overdue ? 'bg-red-950/20' : ''
       }`}
@@ -83,14 +106,22 @@ export default function TaskItem({ task, projects, onClick }: Props) {
       </span>
 
       {/* Status badge */}
-      <span className={`text-sm font-medium px-3 py-1 rounded-full w-36 text-center shrink-0 ${STATUS_COLORS[task.status]}`}>
+      <span
+        onClick={cycleStatus}
+        title="Click to cycle status"
+        className={`text-sm font-medium px-3 py-1 rounded-full w-36 text-center shrink-0 cursor-pointer hover:opacity-75 transition-opacity ${STATUS_COLORS[task.status]}`}
+      >
         {STATUS_LABELS[task.status]}
       </span>
 
       {/* Priority */}
-      <span className={`text-sm font-medium w-20 text-right shrink-0 ${PRIORITY_COLORS[task.priority]}`}>
+      <span
+        onClick={cyclePriority}
+        title="Click to cycle priority"
+        className={`text-sm font-medium w-20 text-right shrink-0 cursor-pointer hover:opacity-75 transition-opacity ${PRIORITY_COLORS[task.priority]}`}
+      >
         {PRIORITY_LABELS[task.priority]}
       </span>
-    </button>
+    </div>
   )
 }

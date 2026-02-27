@@ -9,6 +9,7 @@ interface Props {
   projects: Project[]
   onTaskClick: (task: Task) => void
   onDateClick: (entry: DateEntry) => void
+  onReload: () => void
 }
 
 type TimelineItem =
@@ -25,7 +26,7 @@ function groupByMonth(items: TimelineItem[]): [string, TimelineItem[]][] {
   return Array.from(map.entries())
 }
 
-export default function Timeline({ tasks, dates, projects, onTaskClick, onDateClick }: Props) {
+export default function Timeline({ tasks, dates, projects, onTaskClick, onDateClick, onReload }: Props) {
   const today = isoToday()
 
   const projectMap = useMemo(() => {
@@ -69,6 +70,7 @@ export default function Timeline({ tasks, dates, projects, onTaskClick, onDateCl
           task={task}
           projects={taskProjects}
           onClick={() => onTaskClick(task)}
+          onReload={onReload}
         />
       )
     }

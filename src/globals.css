@@ -31,3 +31,7 @@ input, select, textarea, button {
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
 ::-webkit-scrollbar-thumb { background: #3a3a4a; border-radius: 3px; }
+
+input[type="date"] {
+  color-scheme: dark;
+}

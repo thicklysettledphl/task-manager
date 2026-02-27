@@ -91,6 +91,7 @@ export default function ProjectPage({ slug, onNavigate }: Props) {
           projects={store.projects}
           onTaskClick={setEditTask}
           onDateClick={setEditDate}
+          onReload={load}
         />
       </main>
 

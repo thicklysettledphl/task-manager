@@ -27,6 +27,7 @@ export default function HomePage({ onNavigate }: Props) {
   useEffect(() => { load() }, [load])
 
   const filteredTasks = store.tasks.filter((t) => filter === 'all' || t.status === filter)
+  const filteredDates = filter === 'all' ? store.dates : []
 
   return (
     <div className="flex min-h-screen">
@@ -65,10 +66,11 @@ export default function HomePage({ onNavigate }: Props) {
 
         <Timeline
           tasks={filteredTasks}
-          dates={store.dates}
+          dates={filteredDates}
           projects={store.projects}
           onTaskClick={setEditTask}
           onDateClick={setEditDate}
+          onReload={load}
         />
       </main>
 
