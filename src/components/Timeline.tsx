@@ -26,8 +26,20 @@ function groupByMonth(items: TimelineItem[]): [string, TimelineItem[]][] {
   return Array.from(map.entries())
 }
 
+/** Returns the ISO date of the Friday of the current work week.
+ *  On Sat → next Friday (+6), on Sun → next Friday (+5), on Fri → today (+0). */
+function getThisWeekFriday(today: string): string {
+  const d = new Date(today + 'T12:00:00')
+  const dow = d.getDay() // 0=Sun … 5=Fri, 6=Sat
+  const daysToFriday = dow === 0 ? 5 : dow === 6 ? 6 : 5 - dow
+  d.setDate(d.getDate() + daysToFriday)
+  return d.toISOString().slice(0, 10)
+}
+
 export default function Timeline({ tasks, dates, projects, onTaskClick, onDateClick, onReload }: Props) {
   const today = isoToday()
+  const weekFriday = useMemo(() => getThisWeekFriday(today), [today])
+  const hasRemainingWeekDays = weekFriday > today
 
   const projectMap = useMemo(() => {
     const m = new Map<string, Project>()
@@ -35,19 +47,21 @@ export default function Timeline({ tasks, dates, projects, onTaskClick, onDateCl
     return m
   }, [projects])
 
-  const { upcoming, past } = useMemo(() => {
+  const { todayItems, thisWeekItems, laterItems, past } = useMemo(() => {
     const allItems: TimelineItem[] = [
       ...tasks.map((t): TimelineItem => ({ kind: 'task', item: t, sortKey: t.dueDate })),
       ...dates.map((d): TimelineItem => ({ kind: 'date', item: d, sortKey: d.date })),
     ]
     allItems.sort((a, b) => a.sortKey.localeCompare(b.sortKey))
     return {
-      upcoming: allItems.filter((i) => i.sortKey >= today),
+      todayItems: allItems.filter((i) => i.sortKey === today),
+      thisWeekItems: allItems.filter((i) => i.sortKey > today && i.sortKey <= weekFriday),
+      laterItems: allItems.filter((i) => i.sortKey > weekFriday),
       past: allItems.filter((i) => i.sortKey < today).reverse(),
     }
-  }, [tasks, dates, today])
+  }, [tasks, dates, today, weekFriday])
 
-  const upcomingGroups = useMemo(() => groupByMonth(upcoming), [upcoming])
+  const laterGroups = useMemo(() => groupByMonth(laterItems), [laterItems])
   const pastGroups = useMemo(() => groupByMonth(past), [past])
 
   if (tasks.length === 0 && dates.length === 0) {
@@ -94,19 +108,41 @@ export default function Timeline({ tasks, dates, projects, onTaskClick, onDateCl
         <p className="text-lg font-bold text-white">{formatFullDate(today)}</p>
       </div>
 
-      {/* ── UPCOMING ─────────────────────────────────────────── */}
-      {upcomingGroups.length === 0 ? (
-        <div className="px-6 py-8 text-white/40 text-sm">No upcoming items.</div>
-      ) : (
-        upcomingGroups.map(([key, group]) => (
-          <section key={key}>
-            <div className="px-6 py-3 bg-[#0f0f11]/95 border-b border-white/10 text-sm font-bold tracking-widest text-white/60 sticky top-[89px] z-10">
-              {formatMonthYear(key + '-01')}
-            </div>
-            {group.map(renderItem)}
-          </section>
-        ))
+      {/* ── TODAY ────────────────────────────────────────────── */}
+      <section>
+        <div className="px-6 py-3 bg-[#0f0f11]/95 border-b border-white/10 text-sm font-bold tracking-widest text-white/60 sticky top-[89px] z-10">
+          TODAY
+        </div>
+        {todayItems.length === 0 ? (
+          <div className="px-6 py-5 text-white/30 text-sm border-b border-white/5">Nothing due today.</div>
+        ) : (
+          todayItems.map(renderItem)
+        )}
+      </section>
+
+      {/* ── THIS WEEK ─────────────────────────────────────────── */}
+      {hasRemainingWeekDays && (
+        <section>
+          <div className="px-6 py-3 bg-[#0f0f11]/95 border-b border-white/10 text-sm font-bold tracking-widest text-white/60 sticky top-[89px] z-10">
+            THIS WEEK
+          </div>
+          {thisWeekItems.length === 0 ? (
+            <div className="px-6 py-5 text-white/30 text-sm border-b border-white/5">Nothing else due this week.</div>
+          ) : (
+            thisWeekItems.map(renderItem)
+          )}
+        </section>
       )}
+
+      {/* ── UPCOMING (later) ─────────────────────────────────── */}
+      {laterGroups.map(([key, group]) => (
+        <section key={key}>
+          <div className="px-6 py-3 bg-[#0f0f11]/95 border-b border-white/10 text-sm font-bold tracking-widest text-white/60 sticky top-[89px] z-10">
+            {formatMonthYear(key + '-01')}
+          </div>
+          {group.map(renderItem)}
+        </section>
+      ))}
 
       {/* ── PAST ─────────────────────────────────────────────── */}
       {pastGroups.length > 0 && (
