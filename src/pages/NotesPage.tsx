@@ -200,7 +200,6 @@ export default function NotesPage({ onNavigate, initialNoteId }: Props) {
     <div className="flex h-screen overflow-hidden">
       <ProjectSidebar
         projects={projects}
-        tasks={tasks}
         currentView={{ type: 'notes' }}
         onNavigate={onNavigate}
         onReload={load}

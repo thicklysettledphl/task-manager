@@ -1,4 +1,4 @@
-import type { Task, DateEntry, TaskStore, Project, Note } from './types'
+import type { Task, DateEntry, TaskStore, Project, Note, Student } from './types'
 
 declare global {
   interface Window {
@@ -13,14 +13,19 @@ declare global {
       completeDate(id: string): Promise<DateEntry>
       importFile(buffer: ArrayBuffer, filename: string): Promise<{ text: string; dates: { date: string; label: string; context: string }[] }>
       importUrl(url: string): Promise<{ text: string; dates: { date: string; label: string; context: string }[] }>
-      createProject(data: { name: string; color: string }): Promise<Project>
-      updateProject(id: string, data: { name: string; color: string }): Promise<Project>
+      createProject(data: { name: string; color: string; url?: string }): Promise<Project>
+      updateProject(id: string, data: { name: string; color: string; url?: string }): Promise<Project>
       openUrl(url: string): Promise<void>
       exportData(): Promise<{ ok: boolean; filePath?: string }>
       exportCsv(): Promise<{ ok: boolean; filePath?: string }>
       createNote(body: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Promise<Note>
       updateNote(id: string, partial: Partial<Note>): Promise<Note>
       deleteNote(id: string): Promise<{ ok: boolean }>
+      browseFile(): Promise<string | null>
+      openFile(filePath: string): Promise<string | null>
+      createStudent(body: Omit<Student, 'id' | 'createdAt' | 'updatedAt'>): Promise<Student>
+      updateStudent(id: string, updated: Student): Promise<Student>
+      deleteStudent(id: string): Promise<{ ok: boolean }>
     }
   }
 }

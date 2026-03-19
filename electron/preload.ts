@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, shell } from 'electron'
-import type { Task, DateEntry, TaskStore, Project, Note } from '../src/types'
+import type { Task, DateEntry, TaskStore, Project, Note, Student } from '../src/types'
 
 contextBridge.exposeInMainWorld('api', {
   getTasks: (): Promise<TaskStore> =>
@@ -55,4 +55,19 @@ contextBridge.exposeInMainWorld('api', {
 
   deleteNote: (id: string): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('notes:delete', id),
+
+  browseFile: (): Promise<string | null> =>
+    ipcRenderer.invoke('file:browse'),
+
+  openFile: (filePath: string): Promise<string | null> =>
+    ipcRenderer.invoke('file:open', filePath),
+
+  createStudent: (body: Omit<Student, 'id' | 'createdAt' | 'updatedAt'>): Promise<Student> =>
+    ipcRenderer.invoke('students:create', body),
+
+  updateStudent: (id: string, updated: Student): Promise<Student> =>
+    ipcRenderer.invoke('students:update', id, updated),
+
+  deleteStudent: (id: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('students:delete', id),
 })

@@ -93,9 +93,19 @@ export default function TaskItem({ task, projects, onClick, onReload }: Props) {
             role="button"
             title={task.url}
             onClick={(e) => { e.stopPropagation(); window.api.openUrl(task.url!) }}
-            className="ml-2 text-white/30 hover:text-blue-300 text-sm transition-colors cursor-pointer"
+            className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-500/25 hover:bg-blue-500/50 text-blue-300 text-[10px] leading-none transition-colors cursor-pointer align-middle"
           >
             ↗
+          </span>
+        )}
+        {task.filePath && (
+          <span
+            role="button"
+            title={task.filePath}
+            onClick={(e) => { e.stopPropagation(); window.api.openFile(task.filePath!) }}
+            className="ml-1.5 inline-flex items-center justify-center w-5 h-5 rounded-full bg-amber-500/25 hover:bg-amber-500/50 text-amber-300 text-[10px] leading-none transition-colors cursor-pointer align-middle"
+          >
+            ⊡
           </span>
         )}
         {task.subtasks && task.subtasks.length > 0 && (

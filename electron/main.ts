@@ -1,11 +1,11 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme, shell } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import mammoth from 'mammoth'
 import pdfParse from 'pdf-parse'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
-import type { Task, DateEntry, TaskStore, Note } from '../src/types'
+import type { Task, DateEntry, TaskStore, Note, Student } from '../src/types'
 
 // ── Data store ─────────────────────────────────────────────────────────────
 
@@ -16,6 +16,7 @@ const DATA_PATH = app.isPackaged
 const DEFAULT_STORE: TaskStore = {
   dates: [],
   notes: [],
+  students: [],
   projects: [
     { id: '1', name: 'Pre-Major Advising',      slug: 'pre-major-advising',   color: '#60a5fa' },
     { id: '2', name: 'Major and Minor Advising', slug: 'major-minor-advising', color: '#a78bfa' },
@@ -50,8 +51,9 @@ function readStore(): TaskStore {
     })
 
     const notes = ((data.notes as unknown[]) ?? []) as Note[]
+    const students = ((data.students as unknown[]) ?? []) as Student[]
 
-    return { ...(data as unknown as TaskStore), tasks, dates, notes } as TaskStore
+    return { ...(data as unknown as TaskStore), tasks, dates, notes, students } as TaskStore
   } catch {
     return { ...DEFAULT_STORE, tasks: [], dates: [] }
   }
@@ -285,13 +287,13 @@ ipcMain.handle('import:url', async (_e, url: string) => {
   }
 })
 
-ipcMain.handle('projects:create', (_e, data: { name: string; color: string }) => {
+ipcMain.handle('projects:create', (_e, data: { name: string; color: string; url?: string }) => {
   const store = readStore()
   const slug = data.name
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-  const project = { id: uuidv4(), name: data.name, slug, color: data.color }
+  const project = { id: uuidv4(), name: data.name, slug, color: data.color, url: data.url || undefined }
   store.projects.push(project)
   writeStore(store)
   return project
@@ -471,7 +473,7 @@ ipcMain.handle('notes:delete', (_e, id: string) => {
   return { ok: true }
 })
 
-ipcMain.handle('projects:update', (_e, id: string, data: { name: string; color: string }) => {
+ipcMain.handle('projects:update', (_e, id: string, data: { name: string; color: string; url?: string }) => {
   const store = readStore()
   const idx = store.projects.findIndex((p) => p.id === id)
   if (idx === -1) throw new Error('Project not found')
@@ -479,9 +481,64 @@ ipcMain.handle('projects:update', (_e, id: string, data: { name: string; color: 
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
-  store.projects[idx] = { ...store.projects[idx], name: data.name, slug, color: data.color }
+  store.projects[idx] = { ...store.projects[idx], name: data.name, slug, color: data.color, url: data.url || undefined }
   writeStore(store)
   return store.projects[idx]
+})
+
+// ── Single instance lock ────────────────────────────────────────────────────
+
+const gotLock = app.requestSingleInstanceLock()
+if (!gotLock) {
+  app.quit()
+} else {
+  app.on('second-instance', () => {
+    const wins = BrowserWindow.getAllWindows()
+    if (wins.length > 0) {
+      const win = wins[0]
+      if (win.isMinimized()) win.restore()
+      win.focus()
+    }
+  })
+}
+
+ipcMain.handle('file:browse', async () => {
+  const { canceled, filePaths } = await dialog.showOpenDialog({ properties: ['openFile'] })
+  if (canceled || filePaths.length === 0) return null
+  return filePaths[0]
+})
+
+ipcMain.handle('file:open', async (_e, filePath: string) => {
+  const err = await shell.openPath(filePath)
+  return err || null  // null on success, error string on failure
+})
+
+ipcMain.handle('students:create', (_e, body: Omit<Student, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const now = new Date().toISOString()
+  const student: Student = { ...body, id: uuidv4(), createdAt: now, updatedAt: now }
+  const store = readStore()
+  if (!store.students) store.students = []
+  store.students.push(student)
+  writeStore(store)
+  return student
+})
+
+ipcMain.handle('students:update', (_e, id: string, updated: Student) => {
+  const store = readStore()
+  if (!store.students) store.students = []
+  const idx = store.students.findIndex((s) => s.id === id)
+  if (idx === -1) throw new Error('Student not found')
+  store.students[idx] = { ...updated, id, updatedAt: new Date().toISOString() }
+  writeStore(store)
+  return store.students[idx]
+})
+
+ipcMain.handle('students:delete', (_e, id: string) => {
+  const store = readStore()
+  if (!store.students) store.students = []
+  store.students = store.students.filter((s) => s.id !== id)
+  writeStore(store)
+  return { ok: true }
 })
 
 // ── Window ─────────────────────────────────────────────────────────────────

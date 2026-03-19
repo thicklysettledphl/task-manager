@@ -82,7 +82,6 @@ export default function ProjectPage({ slug, onNavigate }: Props) {
     <div className="flex min-h-screen">
       <ProjectSidebar
         projects={store.projects}
-        tasks={store.tasks}
         currentView={{ type: 'project', slug }}
         onNavigate={onNavigate}
         onReload={load}
@@ -134,6 +133,15 @@ export default function ProjectPage({ slug, onNavigate }: Props) {
         <div className="px-6 py-5 border-b border-white/10 flex items-center gap-3">
           {project && <span className="w-3 h-3 rounded-full shrink-0" style={{ background: project.color }} />}
           <h1 className="text-lg font-bold text-white">{project?.name ?? slug}</h1>
+          {project?.url && (
+            <button
+              onClick={() => window.api.openUrl(project.url!)}
+              className="text-sm text-white/40 hover:text-white/80 transition-colors cursor-pointer"
+              title={project.url}
+            >
+              ↗
+            </button>
+          )}
           {filter !== 'notes' && (
             <span className="text-sm text-white/50">
               {taskCount} task{taskCount !== 1 ? 's' : ''}

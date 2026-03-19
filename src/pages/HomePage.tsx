@@ -33,7 +33,6 @@ export default function HomePage({ onNavigate }: Props) {
     <div className="flex min-h-screen">
       <ProjectSidebar
         projects={store.projects}
-        tasks={store.tasks}
         currentView={{ type: 'home' }}
         onNavigate={onNavigate}
         onReload={load}

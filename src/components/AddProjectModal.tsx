@@ -16,6 +16,7 @@ interface Props {
 export default function AddProjectModal({ project, onClose, onSaved }: Props) {
   const [name, setName] = useState(project?.name ?? '')
   const [color, setColor] = useState(project?.color ?? COLOR_PRESETS[0])
+  const [url, setUrl] = useState(project?.url ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -33,10 +34,11 @@ export default function AddProjectModal({ project, onClose, onSaved }: Props) {
     setError('')
     setSaving(true)
     try {
+      const urlVal = url.trim() || undefined
       if (project) {
-        await window.api.updateProject(project.id, { name: name.trim(), color })
+        await window.api.updateProject(project.id, { name: name.trim(), color, url: urlVal })
       } else {
-        await window.api.createProject({ name: name.trim(), color })
+        await window.api.createProject({ name: name.trim(), color, url: urlVal })
       }
       onSaved()
       onClose()
@@ -66,6 +68,16 @@ export default function AddProjectModal({ project, onClose, onSaved }: Props) {
               onChange={(e) => setName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleSave() }}
               placeholder="Project name..."
+              className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-base text-white placeholder-white/30 focus:outline-none focus:border-white/30"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm text-white/60 uppercase tracking-widest">URL <span className="normal-case tracking-normal text-white/30">(optional)</span></label>
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://..."
               className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-base text-white placeholder-white/30 focus:outline-none focus:border-white/30"
             />
           </div>

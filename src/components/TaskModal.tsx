@@ -36,6 +36,8 @@ export default function TaskModal({ task, projects, defaultProjectIds, defaultDu
   const [repeat, setRepeat] = useState<Repeat | 'none'>(task?.repeat ?? 'none')
   const [notes, setNotes] = useState(task?.notes ?? '')
   const [url, setUrl] = useState(task?.url ?? '')
+  const [filePath, setFilePath] = useState(task?.filePath ?? '')
+  const [dragOver, setDragOver] = useState(false)
   const [subtasks, setSubtasks] = useState<NoteChecklistItem[]>(task?.subtasks ?? [])
   const subtaskRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const [saving, setSaving] = useState(false)
@@ -75,6 +77,26 @@ export default function TaskModal({ task, projects, defaultProjectIds, defaultDu
     setTimeout(() => { if (prevId) subtaskRefs.current.get(prevId)?.focus() }, 50)
   }
 
+  function fileBasename(p: string) {
+    return p.split(/[\\/]/).pop() ?? p
+  }
+
+  async function handleBrowse() {
+    const picked = await window.api.browseFile()
+    if (picked) setFilePath(picked)
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files[0]
+    if (file) {
+      // Electron extends File with a `path` property
+      const p = (file as File & { path: string }).path
+      if (p) setFilePath(p)
+    }
+  }
+
   async function handleSave() {
     if (!title.trim()) return setError('Title is required')
     if (!dueDate) return setError('Due date is required')
@@ -89,6 +111,7 @@ export default function TaskModal({ task, projects, defaultProjectIds, defaultDu
         repeat: repeat === 'none' ? undefined : repeat,
         notes: notes || undefined,
         url: url || undefined,
+        filePath: filePath || undefined,
         subtasks: subtasks.length > 0 ? subtasks : undefined,
       }
       if (task) {
@@ -210,6 +233,44 @@ export default function TaskModal({ task, projects, defaultProjectIds, defaultDu
               placeholder="https://..."
               className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-base text-white placeholder-white/30 focus:outline-none focus:border-white/30"
             />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm text-white/60 uppercase tracking-widest">Document</label>
+            {filePath ? (
+              <div className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 flex items-center gap-3">
+                <span className="text-sm text-white/40 shrink-0">⊡</span>
+                <span className="text-sm text-white/80 flex-1 truncate" title={filePath}>
+                  {fileBasename(filePath)}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setFilePath('')}
+                  className="text-white/30 hover:text-white transition-colors cursor-pointer shrink-0"
+                  title="Remove file"
+                >
+                  ✕
+                </button>
+              </div>
+            ) : (
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragOver(true) }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={handleDrop}
+                className={`border-2 border-dashed rounded-lg px-4 py-5 text-center transition-colors ${
+                  dragOver ? 'border-white/40 bg-white/5' : 'border-white/15 hover:border-white/25'
+                }`}
+              >
+                <p className="text-sm text-white/35 mb-2">Drop a file here, or</p>
+                <button
+                  type="button"
+                  onClick={handleBrowse}
+                  className="text-sm text-white/60 hover:text-white transition-colors cursor-pointer underline underline-offset-2"
+                >
+                  Browse...
+                </button>
+              </div>
+            )}
           </div>
 
           <div className="flex flex-col gap-2">

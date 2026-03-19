@@ -6,6 +6,7 @@ import ProjectPage from './pages/ProjectPage'
 import NotesPage from './pages/NotesPage'
 import SearchPage from './pages/SearchPage'
 import ArchivePage from './pages/ArchivePage'
+import AdvisingPage from './pages/AdvisingPage'
 
 export type View =
   | { type: 'home' }
@@ -13,6 +14,7 @@ export type View =
   | { type: 'notes'; noteId?: string }
   | { type: 'search'; query: string }
   | { type: 'archive' }
+  | { type: 'advising' }
 
 export default function App() {
   const [view, setView] = useState<View>({ type: 'home' })
@@ -27,9 +29,11 @@ export default function App() {
           ? <SearchPage query={view.query} onNavigate={setView} />
           : view.type === 'archive'
             ? <ArchivePage onNavigate={setView} />
-            : view.type === 'project'
-              ? <ProjectPage slug={view.slug} onNavigate={setView} />
-              : <HomePage onNavigate={setView} />
+            : view.type === 'advising'
+              ? <AdvisingPage onNavigate={setView} />
+              : view.type === 'project'
+                ? <ProjectPage slug={view.slug} onNavigate={setView} />
+                : <HomePage onNavigate={setView} />
       }
     </>
   )

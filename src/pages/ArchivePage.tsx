@@ -60,7 +60,6 @@ export default function ArchivePage({ onNavigate }: Props) {
     <div className="flex min-h-screen">
       <ProjectSidebar
         projects={store.projects}
-        tasks={store.tasks}
         currentView={{ type: 'archive' }}
         onNavigate={onNavigate}
         onReload={load}

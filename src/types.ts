@@ -7,6 +7,7 @@ export interface Project {
   name: string
   slug: string
   color: string
+  url?: string
 }
 
 export interface Task {
@@ -20,6 +21,7 @@ export interface Task {
   repeat?: Repeat
   notes?: string
   url?: string
+  filePath?: string
   subtasks?: NoteChecklistItem[]
   createdAt: string
   updatedAt: string
@@ -52,9 +54,33 @@ export interface Note {
   updatedAt: string
 }
 
+export interface WorksheetEntry {
+  slotId: string
+  completed: boolean
+  courseName?: string
+}
+
+export interface StudentWorksheet {
+  id: string       // unique instance ID — allows multiple worksheets of the same degree
+  degreeId: string
+  entries: WorksheetEntry[]
+}
+
+export interface Student {
+  id: string
+  name: string
+  pennId?: string
+  graduationYear?: string
+  notes?: string
+  worksheets: StudentWorksheet[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface TaskStore {
   projects: Project[]
   tasks: Task[]
   dates: DateEntry[]
   notes: Note[]
+  students: Student[]
 }

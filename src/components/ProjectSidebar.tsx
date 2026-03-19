@@ -1,18 +1,51 @@
-import { useState, useEffect } from 'react'
-import type { Project, Task } from '@/types'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import type { Project } from '@/types'
 import type { View } from '@/App'
 import AddProjectModal from './AddProjectModal'
 
 interface Props {
   projects: Project[]
-  tasks: Task[]
   currentView: View
   onNavigate: (v: View) => void
   onReload: () => void
 }
 
-export default function ProjectSidebar({ projects, tasks, currentView, onNavigate, onReload }: Props) {
+export default function ProjectSidebar({ projects, currentView, onNavigate, onReload }: Props) {
   const [showAdd, setShowAdd] = useState(false)
+  const isDragging = useRef(false)
+  const dragStartX = useRef(0)
+  const dragStartWidth = useRef(0)
+
+  const onMouseDown = useCallback((e: React.MouseEvent) => {
+    isDragging.current = true
+    dragStartX.current = e.clientX
+    dragStartWidth.current = parseInt(
+      getComputedStyle(document.documentElement).getPropertyValue('--sidebar-width') || '260'
+    )
+    document.body.style.cursor = 'col-resize'
+    document.body.style.userSelect = 'none'
+  }, [])
+
+  useEffect(() => {
+    function onMouseMove(e: MouseEvent) {
+      if (!isDragging.current) return
+      const delta = e.clientX - dragStartX.current
+      const newWidth = Math.min(400, Math.max(160, dragStartWidth.current + delta))
+      document.documentElement.style.setProperty('--sidebar-width', `${newWidth}px`)
+    }
+    function onMouseUp() {
+      if (!isDragging.current) return
+      isDragging.current = false
+      document.body.style.cursor = ''
+      document.body.style.userSelect = ''
+    }
+    document.addEventListener('mousemove', onMouseMove)
+    document.addEventListener('mouseup', onMouseUp)
+    return () => {
+      document.removeEventListener('mousemove', onMouseMove)
+      document.removeEventListener('mouseup', onMouseUp)
+    }
+  }, [])
   const [editingProject, setEditingProject] = useState<Project | null>(null)
   const [searchInput, setSearchInput] = useState(
     currentView.type === 'search' ? currentView.query : ''
@@ -32,20 +65,21 @@ export default function ProjectSidebar({ projects, tasks, currentView, onNavigat
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchInput])
 
-  function countFor(projectId: string) {
-    return tasks.filter((t) => t.projectIds.includes(projectId) && t.status !== 'done').length
-  }
-  const allActive = tasks.filter((t) => t.status !== 'done').length
   const isHome = currentView.type === 'home'
   const isNotes = currentView.type === 'notes'
   const isArchive = currentView.type === 'archive'
+  const isAdvising = currentView.type === 'advising'
 
   return (
     <>
       <aside
         style={{ width: 'var(--sidebar-width)' }}
-        className="shrink-0 border-r border-white/10 flex flex-col py-6 gap-1 h-screen sticky top-0 overflow-y-auto"
+        className="shrink-0 border-r border-white/10 flex flex-col py-6 gap-1 h-screen sticky top-0 overflow-y-auto relative"
       >
+        <div
+          onMouseDown={onMouseDown}
+          className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-white/20 transition-colors z-10"
+        />
         <div className="px-3 mb-3" style={{ paddingTop: 34 }}>
           <input
             type="text"
@@ -67,9 +101,6 @@ export default function ProjectSidebar({ projects, tasks, currentView, onNavigat
           }`}
         >
           <span>All Tasks</span>
-          {allActive > 0 && (
-            <span className="text-sm bg-white/15 rounded-full px-2 py-0.5">{allActive}</span>
-          )}
         </button>
 
         <button
@@ -81,10 +112,18 @@ export default function ProjectSidebar({ projects, tasks, currentView, onNavigat
           <span>Notes</span>
         </button>
 
+        <button
+          onClick={() => onNavigate({ type: 'advising' })}
+          className={`mx-2 px-3 py-2.5 rounded-lg flex items-center gap-2 text-sm transition-colors cursor-pointer ${
+            isAdvising ? 'bg-white/15 text-white' : 'text-white/70 hover:text-white hover:bg-white/5'
+          }`}
+        >
+          <span>Advising</span>
+        </button>
+
         <div className="my-2 border-t border-white/10" />
 
-        {projects.map((p) => {
-          const count = countFor(p.id)
+        {[...projects].sort((a, b) => a.name.localeCompare(b.name)).map((p) => {
           const active = currentView.type === 'project' && currentView.slug === p.slug
           return (
             <div
@@ -103,9 +142,6 @@ export default function ProjectSidebar({ projects, tasks, currentView, onNavigat
               >
                 ✎
               </button>
-              {count > 0 && (
-                <span className="text-sm bg-white/15 rounded-full px-2 py-0.5 shrink-0">{count}</span>
-              )}
             </div>
           )
         })}

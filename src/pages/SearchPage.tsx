@@ -63,7 +63,6 @@ export default function SearchPage({ query, onNavigate }: Props) {
     <div className="flex min-h-screen">
       <ProjectSidebar
         projects={store.projects}
-        tasks={store.tasks}
         currentView={{ type: 'search', query }}
         onNavigate={onNavigate}
         onReload={load}
