@@ -1,4 +1,4 @@
-import type { Task, DateEntry, TaskStore, Project } from './types'
+import type { Task, DateEntry, TaskStore, Project, Note } from './types'
 
 declare global {
   interface Window {
@@ -16,6 +16,11 @@ declare global {
       createProject(data: { name: string; color: string }): Promise<Project>
       updateProject(id: string, data: { name: string; color: string }): Promise<Project>
       openUrl(url: string): Promise<void>
+      exportData(): Promise<{ ok: boolean; filePath?: string }>
+      exportCsv(): Promise<{ ok: boolean; filePath?: string }>
+      createNote(body: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Promise<Note>
+      updateNote(id: string, partial: Partial<Note>): Promise<Note>
+      deleteNote(id: string): Promise<{ ok: boolean }>
     }
   }
 }

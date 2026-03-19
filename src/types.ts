@@ -20,6 +20,7 @@ export interface Task {
   repeat?: Repeat
   notes?: string
   url?: string
+  subtasks?: NoteChecklistItem[]
   createdAt: string
   updatedAt: string
 }
@@ -35,8 +36,25 @@ export interface DateEntry {
   updatedAt: string
 }
 
+export interface NoteChecklistItem {
+  id: string
+  text: string
+  checked: boolean
+}
+
+export interface Note {
+  id: string
+  title: string
+  body: string
+  checklistItems: NoteChecklistItem[]
+  projectIds: string[]
+  createdAt: string
+  updatedAt: string
+}
+
 export interface TaskStore {
   projects: Project[]
   tasks: Task[]
   dates: DateEntry[]
+  notes: Note[]
 }

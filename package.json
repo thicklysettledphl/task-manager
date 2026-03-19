@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "electron-vite build",
-    "pack": "electron-vite build && electron-builder --dir",
+    "pack": "electron-vite build && electron-builder --dir && rm -rf ~/Desktop/Work\\ Tasks.app && cp -r release/mac-arm64/Work\\ Tasks.app ~/Desktop/Work\\ Tasks.app",
     "dist": "electron-vite build && electron-builder"
   },
   "build": {
@@ -30,6 +30,7 @@
     }
   },
   "dependencies": {
+    "docx": "^9.6.0",
     "mammoth": "^1.8.0",
     "pdf-parse": "^2.4.5",
     "uuid": "^11.0.5"

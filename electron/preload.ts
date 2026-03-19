@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, shell } from 'electron'
-import type { Task, DateEntry, TaskStore, Project } from '../src/types'
+import type { Task, DateEntry, TaskStore, Project, Note } from '../src/types'
 
 contextBridge.exposeInMainWorld('api', {
   getTasks: (): Promise<TaskStore> =>
@@ -40,4 +40,19 @@ contextBridge.exposeInMainWorld('api', {
 
   openUrl: (url: string): Promise<void> =>
     shell.openExternal(url),
+
+  exportData: (): Promise<{ ok: boolean; filePath?: string }> =>
+    ipcRenderer.invoke('data:export'),
+
+  exportCsv: (): Promise<{ ok: boolean; filePath?: string }> =>
+    ipcRenderer.invoke('data:export-csv'),
+
+  createNote: (body: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Promise<Note> =>
+    ipcRenderer.invoke('notes:create', body),
+
+  updateNote: (id: string, partial: Partial<Note>): Promise<Note> =>
+    ipcRenderer.invoke('notes:update', id, partial),
+
+  deleteNote: (id: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('notes:delete', id),
 })

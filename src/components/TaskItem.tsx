@@ -1,7 +1,7 @@
 import type { Task, Project, Status, Priority } from '@/types'
 import { formatDate, isoToday } from '@/lib/utils'
 
-const STATUSES: Status[] = ['not-started', 'in-progress', 'done', 'blocked']
+const STATUSES: Status[] = ['not-started', 'in-progress', 'done']
 const PRIORITIES: Priority[] = ['high', 'medium', 'low']
 
 const STATUS_LABELS: Record<string, string> = {
@@ -96,6 +96,11 @@ export default function TaskItem({ task, projects, onClick, onReload }: Props) {
             className="ml-2 text-white/30 hover:text-blue-300 text-sm transition-colors cursor-pointer"
           >
             ↗
+          </span>
+        )}
+        {task.subtasks && task.subtasks.length > 0 && (
+          <span className="ml-2 text-xs text-white/30">
+            {task.subtasks.filter((s) => s.checked).length}/{task.subtasks.length}
           </span>
         )}
       </span>

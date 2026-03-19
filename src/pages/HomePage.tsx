@@ -13,7 +13,7 @@ interface Props {
 }
 
 export default function HomePage({ onNavigate }: Props) {
-  const [store, setStore] = useState<TaskStore>({ projects: [], tasks: [], dates: [] })
+  const [store, setStore] = useState<TaskStore>({ projects: [], tasks: [], dates: [], notes: [] })
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [editTask, setEditTask] = useState<Task | null | undefined>(undefined)
   const [editDate, setEditDate] = useState<DateEntry | null | undefined>(undefined)

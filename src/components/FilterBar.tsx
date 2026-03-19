@@ -1,24 +1,27 @@
 import type { Status } from '@/types'
 
-export type FilterStatus = Status | 'all'
+export type FilterStatus = Status | 'all' | 'notes'
+
+const BASE_OPTIONS: { label: string; value: FilterStatus }[] = [
+  { label: 'All', value: 'all' },
+  { label: 'Not Started', value: 'not-started' },
+  { label: 'In Progress', value: 'in-progress' },
+  { label: 'Done', value: 'done' },
+]
 
 interface Props {
   current: FilterStatus
   onChange: (s: FilterStatus) => void
+  showNotes?: boolean
 }
 
-const OPTIONS: { label: string; value: FilterStatus }[] = [
-  { label: 'All', value: 'all' },
-  { label: 'Not Started', value: 'not-started' },
-  { label: 'In Progress', value: 'in-progress' },
-  { label: 'Blocked', value: 'blocked' },
-  { label: 'Done', value: 'done' },
-]
-
-export default function FilterBar({ current, onChange }: Props) {
+export default function FilterBar({ current, onChange, showNotes }: Props) {
+  const options = showNotes
+    ? [...BASE_OPTIONS, { label: 'Notes', value: 'notes' as FilterStatus }]
+    : BASE_OPTIONS
   return (
     <div className="flex gap-2 flex-wrap">
-      {OPTIONS.map((opt) => (
+      {options.map((opt) => (
         <button
           key={opt.value}
           onClick={() => onChange(opt.value)}

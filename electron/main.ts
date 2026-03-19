@@ -1,10 +1,11 @@
-import { app, BrowserWindow, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
 import path from 'path'
 import fs from 'fs'
 import { v4 as uuidv4 } from 'uuid'
 import mammoth from 'mammoth'
 import pdfParse from 'pdf-parse'
-import type { Task, DateEntry, TaskStore } from '../src/types'
+import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
+import type { Task, DateEntry, TaskStore, Note } from '../src/types'
 
 // ── Data store ─────────────────────────────────────────────────────────────
 
@@ -14,6 +15,7 @@ const DATA_PATH = app.isPackaged
 
 const DEFAULT_STORE: TaskStore = {
   dates: [],
+  notes: [],
   projects: [
     { id: '1', name: 'Pre-Major Advising',      slug: 'pre-major-advising',   color: '#60a5fa' },
     { id: '2', name: 'Major and Minor Advising', slug: 'major-minor-advising', color: '#a78bfa' },
@@ -47,7 +49,9 @@ function readStore(): TaskStore {
       return { ...entry, projectIds: entry.projectIds ?? [] }
     })
 
-    return { ...(data as unknown as TaskStore), tasks, dates } as TaskStore
+    const notes = ((data.notes as unknown[]) ?? []) as Note[]
+
+    return { ...(data as unknown as TaskStore), tasks, dates, notes } as TaskStore
   } catch {
     return { ...DEFAULT_STORE, tasks: [], dates: [] }
   }
@@ -291,6 +295,180 @@ ipcMain.handle('projects:create', (_e, data: { name: string; color: string }) =>
   store.projects.push(project)
   writeStore(store)
   return project
+})
+
+ipcMain.handle('data:export', async () => {
+  const { filePath, canceled } = await dialog.showSaveDialog({
+    title: 'Export Tasks',
+    defaultPath: `tasks-export-${new Date().toISOString().slice(0, 10)}.docx`,
+    filters: [{ name: 'Word Document', extensions: ['docx'] }],
+  })
+  if (canceled || !filePath) return { ok: false }
+  const store = readStore()
+
+  const statusLabel: Record<string, string> = {
+    'not-started': 'Not Started',
+    'in-progress': 'In Progress',
+    done: 'Done',
+    blocked: 'Blocked',
+  }
+
+  const priorityLabel: Record<string, string> = {
+    high: 'High',
+    medium: 'Medium',
+    low: 'Low',
+  }
+
+  const children: Paragraph[] = [
+    new Paragraph({
+      text: 'Task Export',
+      heading: HeadingLevel.TITLE,
+      alignment: AlignmentType.LEFT,
+    }),
+    new Paragraph({
+      children: [new TextRun({ text: `Exported: ${new Date().toLocaleDateString()}`, color: '888888' })],
+      spacing: { after: 400 },
+    }),
+  ]
+
+  // Group tasks by project
+  for (const project of store.projects) {
+    const projectTasks = store.tasks.filter((t) => t.projectIds.includes(project.id))
+    if (projectTasks.length === 0) continue
+
+    children.push(
+      new Paragraph({ text: project.name, heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } })
+    )
+
+    for (const task of projectTasks) {
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: task.title, bold: true })],
+          spacing: { before: 200 },
+        })
+      )
+
+      const meta: string[] = [
+        `Status: ${statusLabel[task.status] ?? task.status}`,
+        `Priority: ${priorityLabel[task.priority] ?? task.priority}`,
+        `Due: ${task.dueDate}`,
+      ]
+      if (task.startDate) meta.push(`Start: ${task.startDate}`)
+      if (task.repeat) meta.push(`Repeat: ${task.repeat}`)
+      if (task.url) meta.push(`URL: ${task.url}`)
+
+      children.push(
+        new Paragraph({
+          children: [new TextRun({ text: meta.join('  ·  '), color: '666666', size: 20 })],
+        })
+      )
+
+      if (task.notes) {
+        children.push(
+          new Paragraph({
+            children: [new TextRun({ text: task.notes, italics: true, size: 20 })],
+            spacing: { after: 100 },
+          })
+        )
+      }
+    }
+  }
+
+  // Tasks with no project
+  const unassigned = store.tasks.filter((t) => t.projectIds.length === 0)
+  if (unassigned.length > 0) {
+    children.push(
+      new Paragraph({ text: 'Unassigned', heading: HeadingLevel.HEADING_1, spacing: { before: 400, after: 200 } })
+    )
+    for (const task of unassigned) {
+      children.push(
+        new Paragraph({ children: [new TextRun({ text: task.title, bold: true })], spacing: { before: 200 } })
+      )
+      const meta = [
+        `Status: ${statusLabel[task.status] ?? task.status}`,
+        `Priority: ${priorityLabel[task.priority] ?? task.priority}`,
+        `Due: ${task.dueDate}`,
+      ]
+      if (task.startDate) meta.push(`Start: ${task.startDate}`)
+      children.push(
+        new Paragraph({ children: [new TextRun({ text: meta.join('  ·  '), color: '666666', size: 20 })] })
+      )
+      if (task.notes) {
+        children.push(
+          new Paragraph({ children: [new TextRun({ text: task.notes, italics: true, size: 20 })], spacing: { after: 100 } })
+        )
+      }
+    }
+  }
+
+  const doc = new Document({ sections: [{ children }] })
+  const buffer = await Packer.toBuffer(doc)
+  fs.writeFileSync(filePath, buffer)
+  return { ok: true, filePath }
+})
+
+ipcMain.handle('data:export-csv', async () => {
+  const { filePath, canceled } = await dialog.showSaveDialog({
+    title: 'Export Tasks as CSV',
+    defaultPath: `tasks-export-${new Date().toISOString().slice(0, 10)}.csv`,
+    filters: [{ name: 'CSV', extensions: ['csv'] }],
+  })
+  if (canceled || !filePath) return { ok: false }
+  const store = readStore()
+
+  function csvField(s: string): string {
+    if (s.includes(',') || s.includes('"') || s.includes('\n')) {
+      return '"' + s.replace(/"/g, '""') + '"'
+    }
+    return s
+  }
+
+  const rows: string[] = ['Due Date,Project,Title,Status,URL,Notes']
+  for (const task of store.tasks) {
+    const projectNames = store.projects
+      .filter((p) => task.projectIds.includes(p.id))
+      .map((p) => p.name)
+      .join('; ')
+    rows.push([
+      csvField(task.dueDate),
+      csvField(projectNames),
+      csvField(task.title),
+      csvField(task.status),
+      csvField(task.url ?? ''),
+      csvField(task.notes ?? ''),
+    ].join(','))
+  }
+
+  fs.writeFileSync(filePath, rows.join('\n'), 'utf-8')
+  return { ok: true, filePath }
+})
+
+ipcMain.handle('notes:create', (_e, body: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const now = new Date().toISOString()
+  const note: Note = { ...body, id: uuidv4(), createdAt: now, updatedAt: now }
+  const store = readStore()
+  if (!store.notes) store.notes = []
+  store.notes.push(note)
+  writeStore(store)
+  return note
+})
+
+ipcMain.handle('notes:update', (_e, id: string, partial: Partial<Note>) => {
+  const store = readStore()
+  if (!store.notes) store.notes = []
+  const idx = store.notes.findIndex((n) => n.id === id)
+  if (idx === -1) throw new Error('Note not found')
+  store.notes[idx] = { ...store.notes[idx], ...partial, id, updatedAt: new Date().toISOString() }
+  writeStore(store)
+  return store.notes[idx]
+})
+
+ipcMain.handle('notes:delete', (_e, id: string) => {
+  const store = readStore()
+  if (!store.notes) store.notes = []
+  store.notes = store.notes.filter((n) => n.id !== id)
+  writeStore(store)
+  return { ok: true }
 })
 
 ipcMain.handle('projects:update', (_e, id: string, data: { name: string; color: string }) => {

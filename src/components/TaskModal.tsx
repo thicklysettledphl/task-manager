@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react'
-import type { Task, Project, Status, Priority, Repeat } from '@/types'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import type { Task, Project, Status, Priority, Repeat, NoteChecklistItem } from '@/types'
 import ProjectSelector from './ProjectSelector'
 
 interface Props {
@@ -11,18 +11,17 @@ interface Props {
   onSaved: () => void
 }
 
-const STATUSES: Status[] = ['not-started', 'in-progress', 'done', 'blocked']
+const STATUSES: Status[] = ['not-started', 'in-progress', 'done']
 const PRIORITIES: Priority[] = ['high', 'medium', 'low']
 const REPEATS: (Repeat | 'none')[] = ['none', 'daily', 'weekly', 'biweekly', 'monthly', 'yearly']
 const REPEAT_LABELS: Record<Repeat | 'none', string> = {
   none: 'None', daily: 'Daily', weekly: 'Weekly',
   biweekly: 'Biweekly', monthly: 'Monthly', yearly: 'Yearly',
 }
-const STATUS_LABELS: Record<Status, string> = {
+const STATUS_LABELS: Record<string, string> = {
   'not-started': 'Not Started',
   'in-progress': 'In Progress',
   done: 'Done',
-  blocked: 'Blocked',
 }
 
 export default function TaskModal({ task, projects, defaultProjectIds, defaultDueDate, onClose, onSaved }: Props) {
@@ -37,6 +36,8 @@ export default function TaskModal({ task, projects, defaultProjectIds, defaultDu
   const [repeat, setRepeat] = useState<Repeat | 'none'>(task?.repeat ?? 'none')
   const [notes, setNotes] = useState(task?.notes ?? '')
   const [url, setUrl] = useState(task?.url ?? '')
+  const [subtasks, setSubtasks] = useState<NoteChecklistItem[]>(task?.subtasks ?? [])
+  const subtaskRefs = useRef<Map<string, HTMLInputElement>>(new Map())
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
@@ -49,6 +50,30 @@ export default function TaskModal({ task, projects, defaultProjectIds, defaultDu
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [handleKeyDown])
+
+  function addSubtask(afterId?: string) {
+    const newItem: NoteChecklistItem = { id: crypto.randomUUID(), text: '', checked: false }
+    const items = [...subtasks]
+    if (afterId) {
+      const idx = items.findIndex((i) => i.id === afterId)
+      items.splice(idx + 1, 0, newItem)
+    } else {
+      items.push(newItem)
+    }
+    setSubtasks(items)
+    setTimeout(() => subtaskRefs.current.get(newItem.id)?.focus(), 50)
+  }
+
+  function updateSubtask(id: string, updates: Partial<NoteChecklistItem>) {
+    setSubtasks((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)))
+  }
+
+  function deleteSubtask(id: string) {
+    const idx = subtasks.findIndex((i) => i.id === id)
+    const prevId = idx > 0 ? subtasks[idx - 1].id : null
+    setSubtasks((prev) => prev.filter((i) => i.id !== id))
+    setTimeout(() => { if (prevId) subtaskRefs.current.get(prevId)?.focus() }, 50)
+  }
 
   async function handleSave() {
     if (!title.trim()) return setError('Title is required')
@@ -64,6 +89,7 @@ export default function TaskModal({ task, projects, defaultProjectIds, defaultDu
         repeat: repeat === 'none' ? undefined : repeat,
         notes: notes || undefined,
         url: url || undefined,
+        subtasks: subtasks.length > 0 ? subtasks : undefined,
       }
       if (task) {
         await window.api.updateTask(task.id, body)
@@ -191,6 +217,57 @@ export default function TaskModal({ task, projects, defaultProjectIds, defaultDu
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
               placeholder="Optional notes..."
               className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-base text-white placeholder-white/30 focus:outline-none focus:border-white/30 resize-none" />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm text-white/60 uppercase tracking-widest flex items-center gap-2">
+              Subtasks
+              {subtasks.length > 0 && (
+                <span className="normal-case tracking-normal font-normal text-white/30">
+                  {subtasks.filter((s) => s.checked).length}/{subtasks.length} done
+                </span>
+              )}
+            </label>
+            <div className="space-y-1.5">
+              {subtasks.map((item) => (
+                <div key={item.id} className="flex items-center gap-2.5 group">
+                  <input
+                    type="checkbox"
+                    checked={item.checked}
+                    onChange={(e) => updateSubtask(item.id, { checked: e.target.checked })}
+                    className="w-4 h-4 rounded shrink-0 cursor-pointer"
+                    style={{ accentColor: 'rgba(255,255,255,0.5)' }}
+                  />
+                  <input
+                    ref={(el) => { if (el) subtaskRefs.current.set(item.id, el); else subtaskRefs.current.delete(item.id) }}
+                    type="text"
+                    value={item.text}
+                    placeholder="Subtask..."
+                    onChange={(e) => updateSubtask(item.id, { text: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') { e.preventDefault(); addSubtask(item.id) }
+                      else if (e.key === 'Backspace' && item.text === '') { e.preventDefault(); deleteSubtask(item.id) }
+                    }}
+                    className={`flex-1 bg-transparent text-sm outline-none placeholder-white/20 ${
+                      item.checked ? 'text-white/30 line-through' : 'text-white/80'
+                    }`}
+                  />
+                  <button
+                    onClick={() => deleteSubtask(item.id)}
+                    className="opacity-0 group-hover:opacity-100 text-white/25 hover:text-white/60 transition-opacity cursor-pointer text-base leading-none"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+            <button
+              onClick={() => addSubtask()}
+              className="text-sm text-white/25 hover:text-white/50 transition-colors cursor-pointer flex items-center gap-2 mt-1"
+            >
+              <span className="text-base leading-none">☐</span>
+              <span>Add subtask</span>
+            </button>
           </div>
 
           {error && <p className="text-red-300 text-sm">{error}</p>}
