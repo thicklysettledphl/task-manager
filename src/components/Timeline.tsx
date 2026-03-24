@@ -175,6 +175,16 @@ function DateItem({ entry, projects, onClick }: { entry: DateEntry; projects: Pr
       <span className="flex-1 text-base text-white">
         {entry.title}
         {entry.repeat && <span className="ml-2 text-white/30 text-sm">↻</span>}
+        {entry.url && (
+          <span
+            role="button"
+            title={entry.url}
+            onClick={(e) => { e.stopPropagation(); window.api.openUrl(entry.url!) }}
+            className="ml-2 inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-500/25 hover:bg-blue-500/50 text-blue-300 text-[10px] leading-none transition-colors cursor-pointer align-middle"
+          >
+            ↗
+          </span>
+        )}
       </span>
       {/* Project dots */}
       {projects.length > 0 && (

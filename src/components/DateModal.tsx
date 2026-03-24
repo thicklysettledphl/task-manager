@@ -19,6 +19,7 @@ export default function DateModal({ entry, projects, defaultDate, defaultProject
   )
   const [repeat, setRepeat] = useState<Repeat | 'none'>(entry?.repeat ?? 'none')
   const [notes, setNotes] = useState(entry?.notes ?? '')
+  const [url, setUrl] = useState(entry?.url ?? '')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [completing, setCompleting] = useState(false)
@@ -47,9 +48,9 @@ const REPEAT_LABELS: Record<Repeat | 'none', string> = {
     try {
       const repeatVal = repeat === 'none' ? undefined : repeat
       if (entry) {
-        await window.api.updateDate(entry.id, { title: title.trim(), date, projectIds, repeat: repeatVal, notes: notes || undefined })
+        await window.api.updateDate(entry.id, { title: title.trim(), date, projectIds, repeat: repeatVal, notes: notes || undefined, url: url.trim() || undefined })
       } else {
-        await window.api.createDate({ title: title.trim(), date, projectIds, repeat: repeatVal, notes: notes || undefined })
+        await window.api.createDate({ title: title.trim(), date, projectIds, repeat: repeatVal, notes: notes || undefined, url: url.trim() || undefined })
       }
       onSaved()
       onClose()
@@ -153,6 +154,16 @@ const REPEAT_LABELS: Record<Repeat | 'none', string> = {
               rows={2}
               placeholder="Optional..."
               className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-base text-white placeholder-white/30 focus:outline-none focus:border-white/30 resize-none"
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <label className="text-sm text-white/60 uppercase tracking-widest">URL <span className="normal-case text-white/30">(optional)</span></label>
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="https://..."
+              className="bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-base text-white placeholder-white/30 focus:outline-none focus:border-white/30"
             />
           </div>
 
