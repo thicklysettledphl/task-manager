@@ -83,4 +83,63 @@ export interface TaskStore {
   dates: DateEntry[]
   notes: Note[]
   students: Student[]
+  // TSP workspace
+  tspProjects: TSPProject[]
+  tspTasks: Task[]
+  tspDates: DateEntry[]
+  inventoryItems: InventoryItem[]
+  transactions: Transaction[]
+}
+
+// ── TSP Types ────────────────────────────────────────────────────────────────
+
+export interface PipelineStage {
+  id: string
+  name: string
+  order: number
+}
+
+export interface TSPProject {
+  id: string
+  name: string
+  slug: string
+  color: string
+  url?: string
+  description?: string
+  artist?: string
+  releaseDate?: string
+  pipelineStages: PipelineStage[]
+  currentStageId?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type InventoryItemType = 'book' | 'print' | 'shirt' | 'other'
+export type TransactionType = 'sale' | 'gift' | 'personal_copy' | 'consignment' | 'wholesale' | 'restock'
+export type PaymentMethod = 'cash' | 'venmo' | 'paypal' | 'shopify' | 'square' | 'consignment_wholesale' | 'none'
+
+export interface InventoryItem {
+  id: string
+  type: InventoryItemType
+  year: number
+  title: string
+  artist: string
+  description?: string
+  price: number
+  initialStock: number
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Transaction {
+  id: string
+  itemId: string
+  date: string
+  type: TransactionType
+  paymentMethod: PaymentMethod
+  quantity: number
+  unitPrice: number
+  notes?: string
+  createdAt: string
+  updatedAt: string
 }

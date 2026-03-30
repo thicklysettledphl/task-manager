@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Task, DateEntry, Note, Project, TaskStore } from '@/types'
-import type { View } from '@/App'
+import type { View, Workspace } from '@/App'
 import ProjectSidebar from '@/components/ProjectSidebar'
 import TaskModal from '@/components/TaskModal'
 import DateModal from '@/components/DateModal'
@@ -8,7 +8,9 @@ import { formatDate } from '@/lib/utils'
 
 interface Props {
   query: string
+  workspace: Workspace
   onNavigate: (v: View) => void
+  onSwitchWorkspace: (ws: Workspace) => void
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -18,7 +20,7 @@ const STATUS_LABELS: Record<string, string> = {
   blocked: 'Blocked',
 }
 
-export default function SearchPage({ query, onNavigate }: Props) {
+export default function SearchPage({ query, workspace, onNavigate, onSwitchWorkspace }: Props) {
   const [store, setStore] = useState<TaskStore>({ projects: [], tasks: [], dates: [], notes: [] })
   const [editTask, setEditTask] = useState<Task | null | undefined>(undefined)
   const [editDate, setEditDate] = useState<DateEntry | null | undefined>(undefined)
@@ -32,27 +34,37 @@ export default function SearchPage({ query, onNavigate }: Props) {
 
   const q = query.toLowerCase()
 
-  const matchingTasks = store.tasks.filter((t) =>
+  const taskPool = workspace === 'tsp' ? (store.tspTasks ?? []) : store.tasks
+  const datePool = workspace === 'tsp' ? (store.tspDates ?? []) : store.dates
+  const projectPool = workspace === 'tsp' ? (store.tspProjects ?? []).map((p) => ({ id: p.id, name: p.name, slug: p.slug, color: p.color })) : store.projects
+
+  const matchingTasks = taskPool.filter((t) =>
     t.title.toLowerCase().includes(q) ||
     (t.notes ?? '').toLowerCase().includes(q) ||
     (t.url ?? '').toLowerCase().includes(q)
   )
 
-  const matchingDates = store.dates.filter((d) =>
+  const matchingDates = datePool.filter((d) =>
     d.title.toLowerCase().includes(q) ||
     (d.notes ?? '').toLowerCase().includes(q)
   )
 
-  const matchingNotes = (store.notes ?? []).filter((n) =>
+  const matchingNotes = workspace === 'tsp' ? [] : (store.notes ?? []).filter((n) =>
     n.title.toLowerCase().includes(q) ||
     n.body.toLowerCase().includes(q) ||
     n.checklistItems.some((i) => i.text.toLowerCase().includes(q))
   )
 
-  const total = matchingTasks.length + matchingDates.length + matchingNotes.length
+  const matchingInventory = workspace === 'tsp' ? (store.inventoryItems ?? []).filter((item) =>
+    item.title.toLowerCase().includes(q) ||
+    item.artist.toLowerCase().includes(q) ||
+    (item.description ?? '').toLowerCase().includes(q)
+  ) : []
+
+  const total = matchingTasks.length + matchingDates.length + matchingNotes.length + matchingInventory.length
 
   function getTaskProjects(task: Task): Project[] {
-    return store.projects.filter((p) => task.projectIds.includes(p.id))
+    return projectPool.filter((p) => task.projectIds.includes(p.id))
   }
 
   function getNoteProjects(note: Note): Project[] {
@@ -64,8 +76,10 @@ export default function SearchPage({ query, onNavigate }: Props) {
       <ProjectSidebar
         projects={store.projects}
         currentView={{ type: 'search', query }}
+        workspace={workspace}
         onNavigate={onNavigate}
         onReload={load}
+        onSwitchWorkspace={onSwitchWorkspace}
       />
 
       <main className="flex-1 flex flex-col min-h-screen overflow-y-auto">
@@ -170,6 +184,29 @@ export default function SearchPage({ query, onNavigate }: Props) {
                     </button>
                   )
                 })}
+              </div>
+            </section>
+          )}
+
+          {/* Inventory (TSP only) */}
+          {matchingInventory.length > 0 && (
+            <section>
+              <div className="text-xs font-bold tracking-widest text-white/40 uppercase mb-3">
+                Inventory · {matchingInventory.length}
+              </div>
+              <div className="border border-white/10 rounded-xl overflow-hidden">
+                {matchingInventory.map((item) => (
+                  <div
+                    key={item.id}
+                    className="px-5 py-3 flex items-center gap-4 border-b border-white/5 last:border-0"
+                  >
+                    <span className="text-xs text-white/40 w-16 shrink-0 capitalize">{item.type}</span>
+                    <span className="flex-1 text-sm text-white truncate">{item.title}</span>
+                    <span className="text-xs text-white/50 shrink-0">{item.artist}</span>
+                    <span className="text-xs text-white/40 shrink-0">{item.year}</span>
+                    <span className="text-xs text-white/60 shrink-0">${item.price.toFixed(2)}</span>
+                  </div>
+                ))}
               </div>
             </section>
           )}
