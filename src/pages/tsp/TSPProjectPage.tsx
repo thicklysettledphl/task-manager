@@ -13,11 +13,17 @@ interface Props {
 
 const DEFAULT_STAGES: Omit<PipelineStage, 'id'>[] = [
   { name: 'Concept', order: 0 },
-  { name: 'Manuscript', order: 1 },
-  { name: 'Editing', order: 2 },
-  { name: 'Design', order: 3 },
-  { name: 'Print', order: 4 },
-  { name: 'Release', order: 5 },
+  { name: 'Content Collection', order: 1 },
+  { name: 'Digital Layout', order: 2 },
+  { name: 'Digital Proof', order: 3 },
+  { name: 'Print Text Block', order: 4 },
+  { name: 'Collate', order: 5 },
+  { name: 'Trim', order: 6 },
+  { name: 'Cover', order: 7 },
+  { name: 'Bind', order: 8 },
+  { name: 'Face Trim', order: 9 },
+  { name: 'Edition', order: 10 },
+  { name: 'Release', order: 11 },
 ]
 
 const COLORS = [
@@ -79,6 +85,7 @@ export default function TSPProjectPage({ slug, onNavigate, onSwitchWorkspace }: 
   }
 
   const stageIdx = project.pipelineStages.findIndex((s) => s.id === project.currentStageId)
+  const isPublication = project.isPublication ?? true
 
   // TSP projects as "projects" for TaskModal (it expects Project[])
   const projectsForModal = tspProjects.map((p) => ({ id: p.id, name: p.name, slug: p.slug, color: p.color }))
@@ -116,120 +123,134 @@ export default function TSPProjectPage({ slug, onNavigate, onSwitchWorkspace }: 
           )}
         </div>
 
-        {/* Pipeline */}
-        {project.pipelineStages.length > 0 && (
-          <div className="px-8 py-5 border-b border-white/10">
-            <div className="text-xs font-bold tracking-widest text-white/40 uppercase mb-3">Production Pipeline</div>
-            <div className="flex items-center gap-0">
-              {project.pipelineStages.map((stage, i) => {
-                const isCompleted = stageIdx > i
-                const isCurrent = stageIdx === i
-                return (
-                  <div key={stage.id} className="flex items-center flex-1">
-                    <button
-                      onClick={async () => {
-                        await window.api.updateTSPProject(project.id, { currentStageId: stage.id })
-                        load()
-                      }}
-                      className={`flex-1 py-2 px-3 text-xs font-medium text-center transition-all cursor-pointer rounded-lg ${
-                        isCurrent
-                          ? 'text-white shadow-sm'
-                          : isCompleted
-                            ? 'text-white/60'
-                            : 'text-white/25 hover:text-white/50'
-                      }`}
-                      style={isCurrent ? { background: project.color + '33', border: `1px solid ${project.color}66` } : {}}
-                    >
-                      {isCompleted && <span className="mr-1 text-green-400">✓</span>}
-                      {stage.name}
+        {isPublication ? (
+          <>
+            {/* Pipeline */}
+            {project.pipelineStages.length > 0 && (
+              <div className="px-8 py-5 border-b border-white/10">
+                <div className="text-xs font-bold tracking-widest text-white/40 uppercase mb-3">Production Pipeline</div>
+                <div className="flex items-center gap-0">
+                  {project.pipelineStages.map((stage, i) => {
+                    const isCompleted = stageIdx > i
+                    const isCurrent = stageIdx === i
+                    return (
+                      <div key={stage.id} className="flex items-center flex-1">
+                        <button
+                          onClick={async () => {
+                            await window.api.updateTSPProject(project.id, { currentStageId: stage.id })
+                            load()
+                          }}
+                          className={`flex-1 py-2 px-3 text-xs font-medium text-center transition-all cursor-pointer rounded-lg ${
+                            isCurrent
+                              ? 'text-white shadow-sm'
+                              : isCompleted
+                                ? 'text-white/60'
+                                : 'text-white/25 hover:text-white/50'
+                          }`}
+                          style={isCurrent ? { background: project.color + '33', border: `1px solid ${project.color}66` } : {}}
+                        >
+                          {isCompleted && <span className="mr-1 text-green-400">✓</span>}
+                          {stage.name}
+                        </button>
+                        {i < project.pipelineStages.length - 1 && (
+                          <span className={`text-xs mx-0.5 shrink-0 ${isCompleted ? 'text-white/40' : 'text-white/15'}`}>›</span>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Publication content: tasks + dates */}
+            <div className="px-8 py-6 flex flex-col gap-8">
+              {/* Tasks */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold tracking-widest text-white/40 uppercase">
+                    Tasks · {projectTasks.length}
+                  </span>
+                  <button
+                    onClick={() => setEditTask(null)}
+                    className="text-sm text-white/60 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10"
+                  >
+                    + Add Task
+                  </button>
+                </div>
+                {projectTasks.length === 0 ? (
+                  <div className="py-8 text-center text-white/25 text-sm border border-white/10 rounded-xl">
+                    No tasks yet.{' '}
+                    <button onClick={() => setEditTask(null)} className="underline hover:text-white/50 cursor-pointer transition-colors">
+                      Add one
                     </button>
-                    {i < project.pipelineStages.length - 1 && (
-                      <span className={`text-xs mx-0.5 shrink-0 ${isCompleted ? 'text-white/40' : 'text-white/15'}`}>›</span>
-                    )}
                   </div>
-                )
-              })}
+                ) : (
+                  <div className="border border-white/10 rounded-xl overflow-hidden">
+                    {[...projectTasks].sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map((task) => (
+                      <div
+                        key={task.id}
+                        onClick={() => setEditTask(task)}
+                        className="px-5 py-3 flex items-center gap-4 border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer transition-colors"
+                      >
+                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[task.status]}`}>
+                          {STATUS_LABELS[task.status]}
+                        </span>
+                        <span className={`flex-1 text-sm truncate ${task.status === 'done' ? 'line-through text-white/40' : 'text-white'}`}>
+                          {task.title}
+                        </span>
+                        <span className="text-xs text-white/40 shrink-0">{formatDate(task.dueDate)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Dates */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <span className="text-xs font-bold tracking-widest text-white/40 uppercase">
+                    Dates &amp; Events · {projectDates.length}
+                  </span>
+                  <button
+                    onClick={() => setEditDate(null)}
+                    className="text-sm text-white/60 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10"
+                  >
+                    ◆ Add Date
+                  </button>
+                </div>
+                {projectDates.length === 0 ? (
+                  <div className="py-8 text-center text-white/25 text-sm border border-white/10 rounded-xl">
+                    No dates yet.
+                  </div>
+                ) : (
+                  <div className="border border-white/10 rounded-xl overflow-hidden">
+                    {[...projectDates].sort((a, b) => a.date.localeCompare(b.date)).map((d) => (
+                      <div
+                        key={d.id}
+                        onClick={() => setEditDate(d)}
+                        className="px-5 py-3 flex items-center gap-4 border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer transition-colors"
+                      >
+                        <span className="text-base leading-none text-white/40 shrink-0">◆</span>
+                        <span className="flex-1 text-sm text-white truncate">{d.title}</span>
+                        <span className="text-xs text-white/40 shrink-0">{formatDate(d.date)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          </>
+        ) : (
+          /* Non-publication view: notes + timeline */
+          <ProjectGeneralView
+            project={project}
+            projectTasks={projectTasks}
+            projectDates={projectDates}
+            onEditTask={setEditTask}
+            onEditDate={setEditDate}
+            onReload={load}
+          />
         )}
-
-        {/* Content */}
-        <div className="px-8 py-6 flex flex-col gap-8">
-          {/* Tasks */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold tracking-widest text-white/40 uppercase">
-                Tasks · {projectTasks.length}
-              </span>
-              <button
-                onClick={() => setEditTask(null)}
-                className="text-sm text-white/60 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10"
-              >
-                + Add Task
-              </button>
-            </div>
-            {projectTasks.length === 0 ? (
-              <div className="py-8 text-center text-white/25 text-sm border border-white/10 rounded-xl">
-                No tasks yet.{' '}
-                <button onClick={() => setEditTask(null)} className="underline hover:text-white/50 cursor-pointer transition-colors">
-                  Add one
-                </button>
-              </div>
-            ) : (
-              <div className="border border-white/10 rounded-xl overflow-hidden">
-                {[...projectTasks].sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map((task) => (
-                  <div
-                    key={task.id}
-                    onClick={() => setEditTask(task)}
-                    className="px-5 py-3 flex items-center gap-4 border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer transition-colors"
-                  >
-                    <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[task.status]}`}>
-                      {STATUS_LABELS[task.status]}
-                    </span>
-                    <span className={`flex-1 text-sm truncate ${task.status === 'done' ? 'line-through text-white/40' : 'text-white'}`}>
-                      {task.title}
-                    </span>
-                    <span className="text-xs text-white/40 shrink-0">{formatDate(task.dueDate)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Dates */}
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-bold tracking-widest text-white/40 uppercase">
-                Dates &amp; Events · {projectDates.length}
-              </span>
-              <button
-                onClick={() => setEditDate(null)}
-                className="text-sm text-white/60 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10"
-              >
-                ◆ Add Date
-              </button>
-            </div>
-            {projectDates.length === 0 ? (
-              <div className="py-8 text-center text-white/25 text-sm border border-white/10 rounded-xl">
-                No dates yet.
-              </div>
-            ) : (
-              <div className="border border-white/10 rounded-xl overflow-hidden">
-                {[...projectDates].sort((a, b) => a.date.localeCompare(b.date)).map((d) => (
-                  <div
-                    key={d.id}
-                    onClick={() => setEditDate(d)}
-                    className="px-5 py-3 flex items-center gap-4 border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer transition-colors"
-                  >
-                    <span className="text-base leading-none text-white/40 shrink-0">◆</span>
-                    <span className="flex-1 text-sm text-white truncate">{d.title}</span>
-                    <span className="text-xs text-white/40 shrink-0">{formatDate(d.date)}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
       </main>
 
       {editTask !== undefined && (
@@ -272,6 +293,111 @@ export default function TSPProjectPage({ slug, onNavigate, onSwitchWorkspace }: 
   )
 }
 
+// ── Non-publication general view ─────────────────────────────────────────────
+
+function ProjectGeneralView({ project, projectTasks, projectDates, onEditTask, onEditDate, onReload }: {
+  project: TSPProject
+  projectTasks: Task[]
+  projectDates: DateEntry[]
+  onEditTask: (t: Task | null) => void
+  onEditDate: (d: DateEntry | null) => void
+  onReload: () => void
+}) {
+  const [notes, setNotes] = useState(project.notes ?? '')
+
+  async function saveNotes(value: string) {
+    await window.api.updateTSPProject(project.id, { notes: value || undefined })
+    onReload()
+  }
+
+  // Combined timeline: tasks (by dueDate) and dates (by date), sorted together
+  type TimelineItem =
+    | { kind: 'task'; data: Task }
+    | { kind: 'date'; data: DateEntry }
+
+  const timelineItems: TimelineItem[] = [
+    ...projectTasks.map((t) => ({ kind: 'task' as const, data: t })),
+    ...projectDates.map((d) => ({ kind: 'date' as const, data: d })),
+  ].sort((a, b) => {
+    const dateA = a.kind === 'task' ? a.data.dueDate : a.data.date
+    const dateB = b.kind === 'task' ? b.data.dueDate : b.data.date
+    return dateA.localeCompare(dateB)
+  })
+
+  return (
+    <div className="px-8 py-6 flex flex-col gap-8">
+      {/* Notes */}
+      <div>
+        <div className="text-xs font-bold tracking-widest text-white/40 uppercase mb-3">Notes</div>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          onBlur={(e) => saveNotes(e.target.value)}
+          rows={5}
+          placeholder="Add notes about this project..."
+          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-white/25 placeholder-white/20 resize-none leading-relaxed"
+        />
+      </div>
+
+      {/* Timeline */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs font-bold tracking-widest text-white/40 uppercase">Timeline</span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onEditDate(null)}
+              className="text-sm text-white/60 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10"
+            >
+              ◆ Add Date
+            </button>
+            <button
+              onClick={() => onEditTask(null)}
+              className="text-sm text-white/60 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10"
+            >
+              + Add Task
+            </button>
+          </div>
+        </div>
+        {timelineItems.length === 0 ? (
+          <div className="py-8 text-center text-white/25 text-sm border border-white/10 rounded-xl">
+            No tasks or dates yet.
+          </div>
+        ) : (
+          <div className="border border-white/10 rounded-xl overflow-hidden">
+            {timelineItems.map((item) =>
+              item.kind === 'task' ? (
+                <div
+                  key={item.data.id}
+                  onClick={() => onEditTask(item.data)}
+                  className="px-5 py-3 flex items-center gap-4 border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer transition-colors"
+                >
+                  <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[item.data.status]}`}>
+                    {STATUS_LABELS[item.data.status]}
+                  </span>
+                  <span className={`flex-1 text-sm truncate ${item.data.status === 'done' ? 'line-through text-white/40' : 'text-white'}`}>
+                    {item.data.title}
+                  </span>
+                  <span className="text-xs text-white/40 shrink-0">{formatDate(item.data.dueDate)}</span>
+                </div>
+              ) : (
+                <div
+                  key={item.data.id}
+                  onClick={() => onEditDate(item.data)}
+                  className="px-5 py-3 flex items-center gap-4 border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer transition-colors"
+                >
+                  <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-white/10 text-white/50">◆ Date</span>
+                  <span className="flex-1 text-sm text-white truncate">{item.data.title}</span>
+                  <span className="text-xs text-white/40 shrink-0">{formatDate(item.data.date)}</span>
+                </div>
+              )
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── Edit Project Modal ────────────────────────────────────────────────────────
 
 function EditTSPProjectModal({ project, onClose, onSaved, onDelete }: {
@@ -286,6 +412,7 @@ function EditTSPProjectModal({ project, onClose, onSaved, onDelete }: {
   const [releaseDate, setReleaseDate] = useState(project.releaseDate ?? '')
   const [color, setColor] = useState(project.color)
   const [url, setUrl] = useState(project.url ?? '')
+  const [isPublication, setIsPublication] = useState(project.isPublication ?? true)
   const [stages, setStages] = useState<PipelineStage[]>(
     project.pipelineStages.length > 0
       ? project.pipelineStages
@@ -303,7 +430,8 @@ function EditTSPProjectModal({ project, onClose, onSaved, onDelete }: {
       releaseDate: releaseDate || undefined,
       color,
       url: url.trim() || undefined,
-      pipelineStages: stages,
+      isPublication,
+      pipelineStages: isPublication ? stages : [],
     })
     onSaved()
   }
@@ -388,24 +516,36 @@ function EditTSPProjectModal({ project, onClose, onSaved, onDelete }: {
             </div>
           </div>
 
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-white/50">Pipeline Stages</label>
-              <button onClick={addStage} className="text-xs text-white/40 hover:text-white cursor-pointer transition-colors">+ Add stage</button>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              {stages.map((s) => (
-                <div key={s.id} className="flex items-center gap-2">
-                  <input
-                    value={s.name}
-                    onChange={(e) => updateStageName(s.id, e.target.value)}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-white/30"
-                  />
-                  <button onClick={() => removeStage(s.id)} className="text-white/30 hover:text-red-400 cursor-pointer transition-colors text-lg leading-none">×</button>
-                </div>
-              ))}
-            </div>
+          <div className="flex items-center justify-between py-2 border-t border-white/5">
+            <label className="text-xs text-white/50">Publication</label>
+            <button
+              onClick={() => setIsPublication(!isPublication)}
+              className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${isPublication ? 'bg-blue-500' : 'bg-white/10'}`}
+            >
+              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${isPublication ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
           </div>
+
+          {isPublication && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs text-white/50">Pipeline Stages</label>
+                <button onClick={addStage} className="text-xs text-white/40 hover:text-white cursor-pointer transition-colors">+ Add stage</button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {stages.map((s) => (
+                  <div key={s.id} className="flex items-center gap-2">
+                    <input
+                      value={s.name}
+                      onChange={(e) => updateStageName(s.id, e.target.value)}
+                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-white/30"
+                    />
+                    <button onClick={() => removeStage(s.id)} className="text-white/30 hover:text-red-400 cursor-pointer transition-colors text-lg leading-none">×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center gap-2 pt-2">

@@ -12,11 +12,17 @@ interface Props {
 
 const DEFAULT_STAGES: Omit<PipelineStage, 'id'>[] = [
   { name: 'Concept', order: 0 },
-  { name: 'Manuscript', order: 1 },
-  { name: 'Editing', order: 2 },
-  { name: 'Design', order: 3 },
-  { name: 'Print', order: 4 },
-  { name: 'Release', order: 5 },
+  { name: 'Content Collection', order: 1 },
+  { name: 'Digital Layout', order: 2 },
+  { name: 'Digital Proof', order: 3 },
+  { name: 'Print Text Block', order: 4 },
+  { name: 'Collate', order: 5 },
+  { name: 'Trim', order: 6 },
+  { name: 'Cover', order: 7 },
+  { name: 'Bind', order: 8 },
+  { name: 'Face Trim', order: 9 },
+  { name: 'Edition', order: 10 },
+  { name: 'Release', order: 11 },
 ]
 
 const COLORS = [
@@ -212,6 +218,7 @@ function NewTSPProjectModal({ onClose, onSaved }: { onClose: () => void; onSaved
   const [stages, setStages] = useState<PipelineStage[]>(
     DEFAULT_STAGES.map((s, i) => ({ ...s, id: `stage-${i}` }))
   )
+  const [isPublication, setIsPublication] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -226,7 +233,8 @@ function NewTSPProjectModal({ onClose, onSaved }: { onClose: () => void; onSaved
         releaseDate: releaseDate || undefined,
         color,
         url: url.trim() || undefined,
-        pipelineStages: stages,
+        isPublication,
+        pipelineStages: isPublication ? stages : [],
       })
       onSaved()
     } catch {
@@ -295,21 +303,33 @@ function NewTSPProjectModal({ onClose, onSaved }: { onClose: () => void; onSaved
               ))}
             </div>
           </div>
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <label className="text-xs text-white/50">Pipeline Stages</label>
-              <button onClick={addStage} className="text-xs text-white/40 hover:text-white cursor-pointer transition-colors">+ Add</button>
-            </div>
-            <div className="flex flex-col gap-1.5">
-              {stages.map((s) => (
-                <div key={s.id} className="flex items-center gap-2">
-                  <input value={s.name} onChange={(e) => updateStageName(s.id, e.target.value)}
-                    className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-white/30" />
-                  <button onClick={() => removeStage(s.id)} className="text-white/30 hover:text-red-400 cursor-pointer transition-colors text-lg leading-none">×</button>
-                </div>
-              ))}
-            </div>
+          <div className="flex items-center justify-between py-2 border-t border-white/5">
+            <label className="text-xs text-white/50">Publication</label>
+            <button
+              onClick={() => setIsPublication(!isPublication)}
+              className={`relative w-9 h-5 rounded-full transition-colors cursor-pointer ${isPublication ? 'bg-blue-500' : 'bg-white/10'}`}
+            >
+              <span className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${isPublication ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </button>
           </div>
+
+          {isPublication && (
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-xs text-white/50">Pipeline Stages</label>
+                <button onClick={addStage} className="text-xs text-white/40 hover:text-white cursor-pointer transition-colors">+ Add</button>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                {stages.map((s) => (
+                  <div key={s.id} className="flex items-center gap-2">
+                    <input value={s.name} onChange={(e) => updateStageName(s.id, e.target.value)}
+                      className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white outline-none focus:border-white/30" />
+                    <button onClick={() => removeStage(s.id)} className="text-white/30 hover:text-red-400 cursor-pointer transition-colors text-lg leading-none">×</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {error && <p className="text-red-300 text-sm">{error}</p>}

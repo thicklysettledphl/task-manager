@@ -108,6 +108,8 @@ export interface TSPProject {
   description?: string
   artist?: string
   releaseDate?: string
+  isPublication?: boolean
+  notes?: string
   pipelineStages: PipelineStage[]
   currentStageId?: string
   createdAt: string
