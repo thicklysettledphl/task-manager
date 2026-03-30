@@ -1,24 +1,23 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Task, DateEntry, TaskStore } from '@/types'
 import type { View, Workspace } from '@/App'
-import ProjectSidebar from '@/components/ProjectSidebar'
-import FilterBar, { type FilterStatus } from '@/components/FilterBar'
+import TSPSidebar from './TSPSidebar'
 import Timeline from '@/components/Timeline'
 import TaskModal from '@/components/TaskModal'
 import DateModal from '@/components/DateModal'
-import ImportModal from '@/components/ImportModal'
 
 interface Props {
   onNavigate: (v: View) => void
   onSwitchWorkspace: (ws: Workspace) => void
 }
 
-export default function HomePage({ onNavigate, onSwitchWorkspace }: Props) {
-  const [store, setStore] = useState<TaskStore>({ projects: [], tasks: [], dates: [], notes: [] })
-  const [filter, setFilter] = useState<FilterStatus>('all')
+export default function TSPDashboardPage({ onNavigate, onSwitchWorkspace }: Props) {
+  const [store, setStore] = useState<TaskStore>({
+    projects: [], tasks: [], dates: [], notes: [], students: [],
+    tspProjects: [], tspTasks: [], tspDates: [], inventoryItems: [], transactions: [],
+  })
   const [editTask, setEditTask] = useState<Task | null | undefined>(undefined)
   const [editDate, setEditDate] = useState<DateEntry | null | undefined>(undefined)
-  const [showImport, setShowImport] = useState(false)
 
   const load = useCallback(async () => {
     const data = await window.api.getTasks()
@@ -27,15 +26,23 @@ export default function HomePage({ onNavigate, onSwitchWorkspace }: Props) {
 
   useEffect(() => { load() }, [load])
 
-  const filteredTasks = store.tasks.filter((t) => filter === 'all' || t.status === filter)
-  const filteredDates = filter === 'all' ? store.dates : []
+  const tspProjects = store.tspProjects ?? []
+  const tspTasks = store.tspTasks ?? []
+  const tspDates = store.tspDates ?? []
+
+  // Map TSPProjects to the Project shape Timeline expects
+  const projectsForTimeline = tspProjects.map((p) => ({
+    id: p.id,
+    name: p.name,
+    slug: p.slug,
+    color: p.color,
+  }))
 
   return (
     <div className="flex min-h-screen">
-      <ProjectSidebar
-        projects={store.projects}
-        currentView={{ type: 'home' }}
-        workspace="work"
+      <TSPSidebar
+        projects={tspProjects}
+        currentView={{ type: 'tsp-dashboard' }}
         onNavigate={onNavigate}
         onReload={load}
         onSwitchWorkspace={onSwitchWorkspace}
@@ -43,14 +50,7 @@ export default function HomePage({ onNavigate, onSwitchWorkspace }: Props) {
 
       <main className="flex-1 flex flex-col min-h-screen">
         <div className="sticky top-0 z-20 bg-[#0f0f11]/95 border-b border-white/10 px-6 py-4 flex items-center gap-3 flex-wrap">
-          <FilterBar current={filter} onChange={setFilter} />
           <div className="ml-auto flex gap-2">
-            <button
-              onClick={() => setShowImport(true)}
-              className="px-4 py-2 rounded-lg text-sm text-white/60 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
-            >
-              Import
-            </button>
             <button
               onClick={() => setEditDate(null)}
               className="px-4 py-2 rounded-lg text-sm text-white/70 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
@@ -67,33 +67,37 @@ export default function HomePage({ onNavigate, onSwitchWorkspace }: Props) {
         </div>
 
         <Timeline
-          tasks={filteredTasks}
-          dates={filteredDates}
-          projects={store.projects}
+          tasks={tspTasks}
+          dates={tspDates}
+          projects={projectsForTimeline}
           onTaskClick={setEditTask}
           onDateClick={setEditDate}
           onReload={load}
+          updateTask={window.api.updateTSPTask}
         />
       </main>
 
       {editTask !== undefined && (
         <TaskModal
           task={editTask}
-          projects={store.projects}
+          projects={projectsForTimeline}
           onClose={() => setEditTask(undefined)}
           onSaved={load}
+          createTask={window.api.createTSPTask}
+          updateTask={window.api.updateTSPTask}
+          deleteTask={window.api.deleteTSPTask}
         />
       )}
       {editDate !== undefined && (
         <DateModal
           entry={editDate}
-          projects={store.projects}
+          projects={projectsForTimeline}
           onClose={() => setEditDate(undefined)}
           onSaved={load}
+          createDate={window.api.createTSPDate}
+          updateDate={window.api.updateTSPDate}
+          deleteDate={window.api.deleteTSPDate}
         />
-      )}
-      {showImport && (
-        <ImportModal projects={store.projects} onClose={() => setShowImport(false)} onSaved={load} />
       )}
     </div>
   )

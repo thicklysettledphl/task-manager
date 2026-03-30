@@ -35,17 +35,19 @@ interface Props {
   projects: Project[]
   onClick: () => void
   onReload: () => void
+  updateTask?: (id: string, partial: Partial<Task>) => Promise<Task>
 }
 
-export default function TaskItem({ task, projects, onClick, onReload }: Props) {
+export default function TaskItem({ task, projects, onClick, onReload, updateTask }: Props) {
   const today = isoToday()
   const overdue = task.status !== 'done' && task.dueDate < today
+  const doUpdate = updateTask ?? ((id, partial) => window.api.updateTask(id, partial))
 
   async function cycleStatus(e: React.MouseEvent) {
     e.stopPropagation()
     const idx = STATUSES.indexOf(task.status)
     const next = STATUSES[(idx + 1) % STATUSES.length]
-    await window.api.updateTask(task.id, { status: next })
+    await doUpdate(task.id, { status: next })
     onReload()
   }
 
@@ -53,7 +55,7 @@ export default function TaskItem({ task, projects, onClick, onReload }: Props) {
     e.stopPropagation()
     const idx = PRIORITIES.indexOf(task.priority)
     const next = PRIORITIES[(idx + 1) % PRIORITIES.length]
-    await window.api.updateTask(task.id, { priority: next })
+    await doUpdate(task.id, { priority: next })
     onReload()
   }
 

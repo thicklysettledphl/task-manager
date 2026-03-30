@@ -9,9 +9,12 @@ interface Props {
   defaultProjectIds?: string[]
   onClose: () => void
   onSaved: () => void
+  createDate?: (body: Omit<DateEntry, 'id' | 'createdAt' | 'updatedAt'>) => Promise<DateEntry>
+  updateDate?: (id: string, partial: Partial<DateEntry>) => Promise<DateEntry>
+  deleteDate?: (id: string) => Promise<{ ok: boolean }>
 }
 
-export default function DateModal({ entry, projects, defaultDate, defaultProjectIds, onClose, onSaved }: Props) {
+export default function DateModal({ entry, projects, defaultDate, defaultProjectIds, onClose, onSaved, createDate, updateDate, deleteDate }: Props) {
   const [title, setTitle] = useState(entry?.title ?? '')
   const [date, setDate] = useState(entry?.date ?? defaultDate ?? '')
   const [projectIds, setProjectIds] = useState<string[]>(
@@ -48,9 +51,9 @@ const REPEAT_LABELS: Record<Repeat | 'none', string> = {
     try {
       const repeatVal = repeat === 'none' ? undefined : repeat
       if (entry) {
-        await window.api.updateDate(entry.id, { title: title.trim(), date, projectIds, repeat: repeatVal, notes: notes || undefined, url: url.trim() || undefined })
+        await (updateDate ?? window.api.updateDate)(entry.id, { title: title.trim(), date, projectIds, repeat: repeatVal, notes: notes || undefined, url: url.trim() || undefined })
       } else {
-        await window.api.createDate({ title: title.trim(), date, projectIds, repeat: repeatVal, notes: notes || undefined, url: url.trim() || undefined })
+        await (createDate ?? window.api.createDate)({ title: title.trim(), date, projectIds, repeat: repeatVal, notes: notes || undefined, url: url.trim() || undefined })
       }
       onSaved()
       onClose()
@@ -79,7 +82,7 @@ const REPEAT_LABELS: Record<Repeat | 'none', string> = {
     if (!entry || !confirm('Delete this date?')) return
     setDeleting(true)
     try {
-      await window.api.deleteDate(entry.id)
+      await (deleteDate ?? window.api.deleteDate)(entry.id)
       onSaved()
       onClose()
     } catch {

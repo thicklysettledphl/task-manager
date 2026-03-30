@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Student, StudentWorksheet, Project } from '@/types'
-import type { View } from '@/App'
+import type { View, Workspace } from '@/App'
 import ProjectSidebar from '@/components/ProjectSidebar'
 import { DEGREES, getDegree, totalSlots, type DegreeDefinition } from '@/data/degrees'
 
 interface Props {
   onNavigate: (v: View) => void
+  onSwitchWorkspace?: (ws: Workspace) => void
 }
 
 // Ensure every worksheet has an instance ID (handles data created before this field existed)
@@ -207,8 +208,10 @@ export default function AdvisingPage({ onNavigate }: Props) {
       <ProjectSidebar
         projects={projects}
         currentView={{ type: 'advising' }}
+        workspace="work"
         onNavigate={onNavigate}
         onReload={load}
+        onSwitchWorkspace={onSwitchWorkspace ?? (() => {})}
       />
 
       {/* Student list panel */}

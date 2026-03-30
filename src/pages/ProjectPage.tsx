@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Task, DateEntry, Note, TaskStore } from '@/types'
-import type { View } from '@/App'
+import type { View, Workspace } from '@/App'
 import ProjectSidebar from '@/components/ProjectSidebar'
 import FilterBar, { type FilterStatus } from '@/components/FilterBar'
 import Timeline from '@/components/Timeline'
@@ -11,9 +11,10 @@ import ImportModal from '@/components/ImportModal'
 interface Props {
   slug: string
   onNavigate: (v: View) => void
+  onSwitchWorkspace?: (ws: Workspace) => void
 }
 
-export default function ProjectPage({ slug, onNavigate }: Props) {
+export default function ProjectPage({ slug, onNavigate, onSwitchWorkspace }: Props) {
   const [store, setStore] = useState<TaskStore>({ projects: [], tasks: [], dates: [], notes: [] })
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [search, setSearch] = useState('')
@@ -83,8 +84,10 @@ export default function ProjectPage({ slug, onNavigate }: Props) {
       <ProjectSidebar
         projects={store.projects}
         currentView={{ type: 'project', slug }}
+        workspace="work"
         onNavigate={onNavigate}
         onReload={load}
+        onSwitchWorkspace={onSwitchWorkspace ?? (() => {})}
       />
 
       <main className="flex-1 flex flex-col min-h-screen">

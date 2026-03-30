@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import type { Task, TaskStore } from '@/types'
-import type { View } from '@/App'
+import type { View, Workspace } from '@/App'
 import ProjectSidebar from '@/components/ProjectSidebar'
 import TaskModal from '@/components/TaskModal'
 import { formatDate } from '@/lib/utils'
 
 interface Props {
   onNavigate: (v: View) => void
+  onSwitchWorkspace?: (ws: Workspace) => void
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -61,8 +62,10 @@ export default function ArchivePage({ onNavigate }: Props) {
       <ProjectSidebar
         projects={store.projects}
         currentView={{ type: 'archive' }}
+        workspace="work"
         onNavigate={onNavigate}
         onReload={load}
+        onSwitchWorkspace={onSwitchWorkspace ?? (() => {})}
       />
 
       <main className="flex-1 flex flex-col min-h-screen overflow-y-auto">

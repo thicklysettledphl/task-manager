@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid'
 import mammoth from 'mammoth'
 import pdfParse from 'pdf-parse'
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx'
-import type { Task, DateEntry, TaskStore, Note, Student } from '../src/types'
+import type { Task, DateEntry, TaskStore, Note, Student, TSPProject, InventoryItem, Transaction } from '../src/types'
 
 // ── Data store ─────────────────────────────────────────────────────────────
 
@@ -27,6 +27,11 @@ const DEFAULT_STORE: TaskStore = {
     { id: '7', name: 'Campus Partner Events',    slug: 'campus-partner-events',color: '#fbbf24' },
   ],
   tasks: [],
+  tspProjects: [],
+  tspTasks: [],
+  tspDates: [],
+  inventoryItems: [],
+  transactions: [],
 }
 
 function readStore(): TaskStore {
@@ -52,8 +57,19 @@ function readStore(): TaskStore {
 
     const notes = ((data.notes as unknown[]) ?? []) as Note[]
     const students = ((data.students as unknown[]) ?? []) as Student[]
+    const tspProjects = ((data.tspProjects as unknown[]) ?? []) as TSPProject[]
+    const tspTasks = ((data.tspTasks as unknown[]) ?? []).map((t: unknown) => {
+      const task = t as Record<string, unknown>
+      return { ...task, projectIds: task.projectIds ?? [] }
+    }) as Task[]
+    const tspDates = ((data.tspDates as unknown[]) ?? []).map((d: unknown) => {
+      const entry = d as Record<string, unknown>
+      return { ...entry, projectIds: entry.projectIds ?? [] }
+    }) as import('../src/types').DateEntry[]
+    const inventoryItems = ((data.inventoryItems as unknown[]) ?? []) as InventoryItem[]
+    const transactions = ((data.transactions as unknown[]) ?? []) as Transaction[]
 
-    return { ...(data as unknown as TaskStore), tasks, dates, notes, students } as TaskStore
+    return { ...(data as unknown as TaskStore), tasks, dates, notes, students, tspProjects, tspTasks, tspDates, inventoryItems, transactions } as TaskStore
   } catch {
     return { ...DEFAULT_STORE, tasks: [], dates: [] }
   }
@@ -484,6 +500,192 @@ ipcMain.handle('projects:update', (_e, id: string, data: { name: string; color: 
   store.projects[idx] = { ...store.projects[idx], name: data.name, slug, color: data.color, url: data.url || undefined }
   writeStore(store)
   return store.projects[idx]
+})
+
+// ── TSP Project handlers ────────────────────────────────────────────────────
+
+function makeTSPSlug(name: string) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '')
+}
+
+ipcMain.handle('tsp:projects:create', (_e, data: Omit<TSPProject, 'id' | 'createdAt' | 'updatedAt' | 'slug'>) => {
+  const now = new Date().toISOString()
+  const project: TSPProject = { ...data, id: uuidv4(), slug: makeTSPSlug(data.name), pipelineStages: data.pipelineStages ?? [], createdAt: now, updatedAt: now }
+  const store = readStore()
+  if (!store.tspProjects) store.tspProjects = []
+  store.tspProjects.push(project)
+  writeStore(store)
+  return project
+})
+
+ipcMain.handle('tsp:projects:update', (_e, id: string, data: Partial<TSPProject>) => {
+  const store = readStore()
+  if (!store.tspProjects) store.tspProjects = []
+  const idx = store.tspProjects.findIndex((p) => p.id === id)
+  if (idx === -1) throw new Error('TSP project not found')
+  const updated = { ...store.tspProjects[idx], ...data, id, updatedAt: new Date().toISOString() }
+  if (data.name) updated.slug = makeTSPSlug(data.name)
+  store.tspProjects[idx] = updated
+  writeStore(store)
+  return store.tspProjects[idx]
+})
+
+ipcMain.handle('tsp:projects:delete', (_e, id: string) => {
+  const store = readStore()
+  if (!store.tspProjects) store.tspProjects = []
+  store.tspProjects = store.tspProjects.filter((p) => p.id !== id)
+  writeStore(store)
+  return { ok: true }
+})
+
+// ── TSP Task handlers ───────────────────────────────────────────────────────
+
+ipcMain.handle('tsp:tasks:create', (_e, body: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const now = new Date().toISOString()
+  const task: Task = { ...body, id: uuidv4(), createdAt: now, updatedAt: now }
+  const store = readStore()
+  if (!store.tspTasks) store.tspTasks = []
+  store.tspTasks.push(task)
+  writeStore(store)
+  return task
+})
+
+ipcMain.handle('tsp:tasks:update', (_e, id: string, partial: Partial<Task>) => {
+  const store = readStore()
+  if (!store.tspTasks) store.tspTasks = []
+  const idx = store.tspTasks.findIndex((t) => t.id === id)
+  if (idx === -1) throw new Error('TSP task not found')
+  store.tspTasks[idx] = { ...store.tspTasks[idx], ...partial, id, updatedAt: new Date().toISOString() }
+  if (partial.status === 'done' && store.tspTasks[idx].repeat) {
+    const updated = store.tspTasks[idx]
+    const now = new Date().toISOString()
+    const { id: _id, createdAt: _c, updatedAt: _u, status: _s, ...rest } = updated
+    store.tspTasks.push({ ...rest, id: uuidv4(), status: 'not-started', dueDate: advanceDate(updated.dueDate, updated.repeat!), createdAt: now, updatedAt: now })
+  }
+  writeStore(store)
+  return store.tspTasks[idx]
+})
+
+ipcMain.handle('tsp:tasks:delete', (_e, id: string) => {
+  const store = readStore()
+  if (!store.tspTasks) store.tspTasks = []
+  store.tspTasks = store.tspTasks.filter((t) => t.id !== id)
+  writeStore(store)
+  return { ok: true }
+})
+
+// ── TSP Date handlers ───────────────────────────────────────────────────────
+
+ipcMain.handle('tsp:dates:create', (_e, body: Omit<import('../src/types').DateEntry, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const now = new Date().toISOString()
+  const entry = { ...body, id: uuidv4(), createdAt: now, updatedAt: now }
+  const store = readStore()
+  if (!store.tspDates) store.tspDates = []
+  store.tspDates.push(entry)
+  writeStore(store)
+  return entry
+})
+
+ipcMain.handle('tsp:dates:update', (_e, id: string, partial: Partial<import('../src/types').DateEntry>) => {
+  const store = readStore()
+  if (!store.tspDates) store.tspDates = []
+  const idx = store.tspDates.findIndex((d) => d.id === id)
+  if (idx === -1) throw new Error('TSP date not found')
+  store.tspDates[idx] = { ...store.tspDates[idx], ...partial, id, updatedAt: new Date().toISOString() }
+  writeStore(store)
+  return store.tspDates[idx]
+})
+
+ipcMain.handle('tsp:dates:delete', (_e, id: string) => {
+  const store = readStore()
+  if (!store.tspDates) store.tspDates = []
+  store.tspDates = store.tspDates.filter((d) => d.id !== id)
+  writeStore(store)
+  return { ok: true }
+})
+
+// ── Inventory handlers ──────────────────────────────────────────────────────
+
+ipcMain.handle('tsp:inventory:create', (_e, body: Omit<InventoryItem, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const now = new Date().toISOString()
+  const item: InventoryItem = { ...body, id: uuidv4(), createdAt: now, updatedAt: now }
+  const store = readStore()
+  if (!store.inventoryItems) store.inventoryItems = []
+  store.inventoryItems.push(item)
+  writeStore(store)
+  return item
+})
+
+ipcMain.handle('tsp:inventory:update', (_e, id: string, partial: Partial<InventoryItem>) => {
+  const store = readStore()
+  if (!store.inventoryItems) store.inventoryItems = []
+  const idx = store.inventoryItems.findIndex((i) => i.id === id)
+  if (idx === -1) throw new Error('Inventory item not found')
+  store.inventoryItems[idx] = { ...store.inventoryItems[idx], ...partial, id, updatedAt: new Date().toISOString() }
+  writeStore(store)
+  return store.inventoryItems[idx]
+})
+
+ipcMain.handle('tsp:inventory:delete', (_e, id: string) => {
+  const store = readStore()
+  if (!store.inventoryItems) store.inventoryItems = []
+  store.inventoryItems = store.inventoryItems.filter((i) => i.id !== id)
+  writeStore(store)
+  return { ok: true }
+})
+
+// ── Transaction handlers ────────────────────────────────────────────────────
+
+ipcMain.handle('tsp:transactions:create', (_e, body: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const now = new Date().toISOString()
+  const tx: Transaction = { ...body, id: uuidv4(), createdAt: now, updatedAt: now }
+  const store = readStore()
+  if (!store.transactions) store.transactions = []
+  store.transactions.push(tx)
+  writeStore(store)
+  return tx
+})
+
+ipcMain.handle('tsp:transactions:update', (_e, id: string, partial: Partial<Transaction>) => {
+  const store = readStore()
+  if (!store.transactions) store.transactions = []
+  const idx = store.transactions.findIndex((t) => t.id === id)
+  if (idx === -1) throw new Error('Transaction not found')
+  store.transactions[idx] = { ...store.transactions[idx], ...partial, id, updatedAt: new Date().toISOString() }
+  writeStore(store)
+  return store.transactions[idx]
+})
+
+ipcMain.handle('tsp:transactions:delete', (_e, id: string) => {
+  const store = readStore()
+  if (!store.transactions) store.transactions = []
+  store.transactions = store.transactions.filter((t) => t.id !== id)
+  writeStore(store)
+  return { ok: true }
+})
+
+// ── TSP Inventory import (from Supabase JSON export) ───────────────────────
+
+ipcMain.handle('tsp:inventory:import', async (_e, items: InventoryItem[], txs: Transaction[]) => {
+  const store = readStore()
+  if (!store.inventoryItems) store.inventoryItems = []
+  if (!store.transactions) store.transactions = []
+  const now = new Date().toISOString()
+  // Merge by id to avoid duplicates
+  const existingItemIds = new Set(store.inventoryItems.map((i) => i.id))
+  const existingTxIds = new Set(store.transactions.map((t) => t.id))
+  for (const item of items) {
+    if (!existingItemIds.has(item.id)) {
+      store.inventoryItems.push({ ...item, createdAt: item.createdAt ?? now, updatedAt: item.updatedAt ?? now })
+    }
+  }
+  for (const tx of txs) {
+    if (!existingTxIds.has(tx.id)) {
+      store.transactions.push({ ...tx, createdAt: tx.createdAt ?? now, updatedAt: tx.updatedAt ?? now })
+    }
+  }
+  writeStore(store)
+  return { ok: true, itemCount: items.length, txCount: txs.length }
 })
 
 // ── Single instance lock ────────────────────────────────────────────────────

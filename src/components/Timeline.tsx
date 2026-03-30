@@ -10,6 +10,7 @@ interface Props {
   onTaskClick: (task: Task) => void
   onDateClick: (entry: DateEntry) => void
   onReload: () => void
+  updateTask?: (id: string, partial: Partial<Task>) => Promise<Task>
 }
 
 type TimelineItem =
@@ -36,7 +37,7 @@ function getThisWeekFriday(today: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-export default function Timeline({ tasks, dates, projects, onTaskClick, onDateClick, onReload }: Props) {
+export default function Timeline({ tasks, dates, projects, onTaskClick, onDateClick, onReload, updateTask }: Props) {
   const today = isoToday()
   const weekFriday = useMemo(() => getThisWeekFriday(today), [today])
   const hasRemainingWeekDays = weekFriday > today
@@ -85,6 +86,7 @@ export default function Timeline({ tasks, dates, projects, onTaskClick, onDateCl
           projects={taskProjects}
           onClick={() => onTaskClick(task)}
           onReload={onReload}
+          updateTask={updateTask}
         />
       )
     }

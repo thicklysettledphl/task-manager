@@ -1,14 +1,15 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import type { Note, Project, Task } from '@/types'
-import type { View } from '@/App'
+import type { View, Workspace } from '@/App'
 import ProjectSidebar from '@/components/ProjectSidebar'
 
 interface Props {
   onNavigate: (v: View) => void
+  onSwitchWorkspace?: (ws: Workspace) => void
   initialNoteId?: string
 }
 
-export default function NotesPage({ onNavigate, initialNoteId }: Props) {
+export default function NotesPage({ onNavigate, onSwitchWorkspace, initialNoteId }: Props) {
   const [projects, setProjects] = useState<Project[]>([])
   const [tasks, setTasks] = useState<Task[]>([])
   const [notes, setNotes] = useState<Note[]>([])
@@ -201,8 +202,10 @@ export default function NotesPage({ onNavigate, initialNoteId }: Props) {
       <ProjectSidebar
         projects={projects}
         currentView={{ type: 'notes' }}
+        workspace="work"
         onNavigate={onNavigate}
         onReload={load}
+        onSwitchWorkspace={onSwitchWorkspace ?? (() => {})}
       />
 
       {/* Notes list panel */}

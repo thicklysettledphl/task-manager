@@ -9,6 +9,9 @@ interface Props {
   defaultDueDate?: string
   onClose: () => void
   onSaved: () => void
+  createTask?: (body: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Task>
+  updateTask?: (id: string, partial: Partial<Task>) => Promise<Task>
+  deleteTask?: (id: string) => Promise<{ ok: boolean }>
 }
 
 const STATUSES: Status[] = ['not-started', 'in-progress', 'done']
@@ -24,7 +27,7 @@ const STATUS_LABELS: Record<string, string> = {
   done: 'Done',
 }
 
-export default function TaskModal({ task, projects, defaultProjectIds, defaultDueDate, onClose, onSaved }: Props) {
+export default function TaskModal({ task, projects, defaultProjectIds, defaultDueDate, onClose, onSaved, createTask, updateTask, deleteTask }: Props) {
   const [title, setTitle] = useState(task?.title ?? '')
   const [projectIds, setProjectIds] = useState<string[]>(
     task?.projectIds ?? defaultProjectIds ?? (projects[0] ? [projects[0].id] : [])
@@ -115,9 +118,9 @@ export default function TaskModal({ task, projects, defaultProjectIds, defaultDu
         subtasks: subtasks.length > 0 ? subtasks : undefined,
       }
       if (task) {
-        await window.api.updateTask(task.id, body)
+        await (updateTask ?? window.api.updateTask)(task.id, body)
       } else {
-        await window.api.createTask(body)
+        await (createTask ?? window.api.createTask)(body)
       }
       onSaved()
       onClose()
@@ -132,7 +135,7 @@ export default function TaskModal({ task, projects, defaultProjectIds, defaultDu
     if (!task || !confirm('Delete this task?')) return
     setDeleting(true)
     try {
-      await window.api.deleteTask(task.id)
+      await (deleteTask ?? window.api.deleteTask)(task.id)
       onSaved()
       onClose()
     } catch {
