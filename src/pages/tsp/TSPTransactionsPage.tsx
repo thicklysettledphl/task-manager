@@ -28,7 +28,7 @@ function formatDate(iso: string) {
 export default function TSPTransactionsPage({ onNavigate, onSwitchWorkspace }: Props) {
   const [store, setStore] = useState<TaskStore>({
     projects: [], tasks: [], dates: [], notes: [], students: [],
-    tspProjects: [], tspTasks: [], tspDates: [], inventoryItems: [], transactions: [],
+    tspProjects: [], tspTasks: [], tspDates: [], tspNotes: [], tspExpenses: [], inventoryItems: [], transactions: [],
   })
   const [editTx, setEditTx] = useState<Transaction | null | undefined>(undefined)
   const [typeFilter, setTypeFilter] = useState<TransactionType | 'all'>('all')

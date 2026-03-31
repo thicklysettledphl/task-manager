@@ -33,7 +33,7 @@ type FilterStatus = 'all' | 'not-started' | 'in-progress' | 'done' | 'blocked'
 export default function TSPTasksPage({ onNavigate, onSwitchWorkspace }: Props) {
   const [store, setStore] = useState<TaskStore>({
     projects: [], tasks: [], dates: [], notes: [], students: [],
-    tspProjects: [], tspTasks: [], tspDates: [], inventoryItems: [], transactions: [],
+    tspProjects: [], tspTasks: [], tspDates: [], tspNotes: [], tspExpenses: [], inventoryItems: [], transactions: [],
   })
   const [filter, setFilter] = useState<FilterStatus>('all')
   const [editTask, setEditTask] = useState<Task | null | undefined>(undefined)

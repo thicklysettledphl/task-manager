@@ -1,4 +1,4 @@
-import type { Task, DateEntry, TaskStore, Project, Note, Student, TSPProject, InventoryItem, Transaction } from './types'
+import type { Task, DateEntry, TaskStore, Project, Note, Student, TSPProject, InventoryItem, Transaction, Expense } from './types'
 
 declare global {
   interface Window {
@@ -26,6 +26,9 @@ declare global {
       createStudent(body: Omit<Student, 'id' | 'createdAt' | 'updatedAt'>): Promise<Student>
       updateStudent(id: string, updated: Student): Promise<Student>
       deleteStudent(id: string): Promise<{ ok: boolean }>
+      createTSPNote(body: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Promise<Note>
+      updateTSPNote(id: string, partial: Partial<Note>): Promise<Note>
+      deleteTSPNote(id: string): Promise<{ ok: boolean }>
       // TSP
       createTSPProject(data: Omit<TSPProject, 'id' | 'createdAt' | 'updatedAt' | 'slug'>): Promise<TSPProject>
       updateTSPProject(id: string, data: Partial<TSPProject>): Promise<TSPProject>
@@ -43,6 +46,9 @@ declare global {
       createTransaction(body: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'>): Promise<Transaction>
       updateTransaction(id: string, partial: Partial<Transaction>): Promise<Transaction>
       deleteTransaction(id: string): Promise<{ ok: boolean }>
+      createTSPExpense(body: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>): Promise<Expense>
+      updateTSPExpense(id: string, partial: Partial<Expense>): Promise<Expense>
+      deleteTSPExpense(id: string): Promise<{ ok: boolean }>
     }
   }
 }

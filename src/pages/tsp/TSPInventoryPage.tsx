@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { TaskStore, InventoryItem, InventoryItemType, Transaction } from '@/types'
+import type { TaskStore, InventoryItem, InventoryItemType, Transaction, TSPProject } from '@/types'
 import type { View, Workspace } from '@/App'
 import TSPSidebar from './TSPSidebar'
 
@@ -22,7 +22,7 @@ function stockRemaining(item: InventoryItem, transactions: Transaction[]): numbe
 export default function TSPInventoryPage({ onNavigate, onSwitchWorkspace }: Props) {
   const [store, setStore] = useState<TaskStore>({
     projects: [], tasks: [], dates: [], notes: [], students: [],
-    tspProjects: [], tspTasks: [], tspDates: [], inventoryItems: [], transactions: [],
+    tspProjects: [], tspTasks: [], tspDates: [], tspNotes: [], tspExpenses: [], inventoryItems: [], transactions: [],
   })
   const [typeFilter, setTypeFilter] = useState<InventoryItemType | 'all'>('all')
   const [search, setSearch] = useState('')
@@ -183,6 +183,7 @@ export default function TSPInventoryPage({ onNavigate, onSwitchWorkspace }: Prop
       {editItem !== undefined && (
         <InventoryItemModal
           item={editItem}
+          projects={tspProjects}
           onClose={() => setEditItem(undefined)}
           onSaved={load}
         />
@@ -193,8 +194,9 @@ export default function TSPInventoryPage({ onNavigate, onSwitchWorkspace }: Prop
 
 // ── Inventory Item Modal ─────────────────────────────────────────────────────
 
-function InventoryItemModal({ item, onClose, onSaved }: {
+function InventoryItemModal({ item, projects, onClose, onSaved }: {
   item: InventoryItem | null
+  projects: TSPProject[]
   onClose: () => void
   onSaved: () => void
 }) {
@@ -205,6 +207,7 @@ function InventoryItemModal({ item, onClose, onSaved }: {
   const [description, setDescription] = useState(item?.description ?? '')
   const [price, setPrice] = useState(item?.price?.toString() ?? '')
   const [initialStock, setInitialStock] = useState(item?.initialStock?.toString() ?? '0')
+  const [tspProjectId, setTspProjectId] = useState(item?.tspProjectId ?? '')
   const [saving, setSaving] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [error, setError] = useState('')
@@ -224,6 +227,7 @@ function InventoryItemModal({ item, onClose, onSaved }: {
         description: description.trim() || undefined,
         price: parseFloat(price),
         initialStock: parseInt(initialStock) || 0,
+        tspProjectId: tspProjectId || undefined,
       }
       if (item) {
         await window.api.updateInventoryItem(item.id, body)
@@ -342,6 +346,18 @@ function InventoryItemModal({ item, onClose, onSaved }: {
             />
             {item && <p className="text-xs text-white/30 mt-1">To add stock, record a Restock transaction instead.</p>}
           </div>
+
+          {projects.length > 0 && (
+            <div>
+              <label className="text-xs text-white/50 uppercase tracking-widest block mb-1.5">Link to Project (for P&amp;L)</label>
+              <select value={tspProjectId} onChange={(e) => setTspProjectId(e.target.value)}
+                className="w-full bg-[#1a1a24] border border-white/10 rounded-lg px-3 py-2.5 text-sm text-white outline-none focus:border-white/30">
+                <option value="">No project</option>
+                {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+              <p className="text-xs text-white/30 mt-1">Links sales revenue to a project on the P&amp;L dashboard.</p>
+            </div>
+          )}
 
           {error && <p className="text-red-300 text-sm">{error}</p>}
         </div>

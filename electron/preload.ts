@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, shell } from 'electron'
-import type { Task, DateEntry, TaskStore, Project, Note, Student, TSPProject, InventoryItem, Transaction } from '../src/types'
+import type { Task, DateEntry, TaskStore, Project, Note, Student, TSPProject, InventoryItem, Transaction, Expense } from '../src/types'
 
 contextBridge.exposeInMainWorld('api', {
   getTasks: (): Promise<TaskStore> =>
@@ -71,6 +71,15 @@ contextBridge.exposeInMainWorld('api', {
   deleteStudent: (id: string): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('students:delete', id),
 
+  createTSPNote: (body: Omit<Note, 'id' | 'createdAt' | 'updatedAt'>): Promise<Note> =>
+    ipcRenderer.invoke('tsp:notes:create', body),
+
+  updateTSPNote: (id: string, partial: Partial<Note>): Promise<Note> =>
+    ipcRenderer.invoke('tsp:notes:update', id, partial),
+
+  deleteTSPNote: (id: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('tsp:notes:delete', id),
+
   // TSP
   createTSPProject: (data: Omit<TSPProject, 'id' | 'createdAt' | 'updatedAt' | 'slug'>): Promise<TSPProject> =>
     ipcRenderer.invoke('tsp:projects:create', data),
@@ -119,4 +128,13 @@ contextBridge.exposeInMainWorld('api', {
 
   deleteTransaction: (id: string): Promise<{ ok: boolean }> =>
     ipcRenderer.invoke('tsp:transactions:delete', id),
+
+  createTSPExpense: (body: Omit<Expense, 'id' | 'createdAt' | 'updatedAt'>): Promise<Expense> =>
+    ipcRenderer.invoke('tsp:expenses:create', body),
+
+  updateTSPExpense: (id: string, partial: Partial<Expense>): Promise<Expense> =>
+    ipcRenderer.invoke('tsp:expenses:update', id, partial),
+
+  deleteTSPExpense: (id: string): Promise<{ ok: boolean }> =>
+    ipcRenderer.invoke('tsp:expenses:delete', id),
 })

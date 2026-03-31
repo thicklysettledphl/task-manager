@@ -89,10 +89,10 @@ export default function TSPSidebar({ projects, currentView, onNavigate, onReload
   }
 
   const isDash = currentView.type === 'tsp-dashboard'
-  const isTasks = currentView.type === 'tsp-tasks'
-  const isDates = currentView.type === 'tsp-dates'
+  const isNotes = currentView.type === 'tsp-notes'
   const isInventory = currentView.type === 'tsp-inventory'
   const isTransactions = currentView.type === 'tsp-transactions'
+  const isInventoryDash = currentView.type === 'tsp-inventory-dashboard'
 
   return (
     <>
@@ -138,15 +138,11 @@ export default function TSPSidebar({ projects, currentView, onNavigate, onReload
       </div>
 
       <button onClick={() => onNavigate({ type: 'tsp-dashboard' })} className={navClass(isDash)}>
-        <span>Dashboard</span>
+        <span>All Tasks</span>
       </button>
 
-      <button onClick={() => onNavigate({ type: 'tsp-tasks' })} className={navClass(isTasks)}>
-        <span>Tasks</span>
-      </button>
-
-      <button onClick={() => onNavigate({ type: 'tsp-dates' })} className={navClass(isDates)}>
-        <span>Dates &amp; Events</span>
+      <button onClick={() => onNavigate({ type: 'tsp-notes' })} className={navClass(isNotes)}>
+        <span>Notes</span>
       </button>
 
       <div className="my-2 border-t border-white/10" />
@@ -176,6 +172,10 @@ export default function TSPSidebar({ projects, currentView, onNavigate, onReload
       <div className="px-4 mb-1">
         <span className="text-xs font-bold tracking-widest text-white/40 uppercase">Inventory</span>
       </div>
+
+      <button onClick={() => onNavigate({ type: 'tsp-inventory-dashboard' })} className={navClass(isInventoryDash)}>
+        <span>P&amp;L Dashboard</span>
+      </button>
 
       <button onClick={() => onNavigate({ type: 'tsp-inventory' })} className={navClass(isInventory)}>
         <span>Items</span>

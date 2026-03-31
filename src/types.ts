@@ -66,12 +66,19 @@ export interface StudentWorksheet {
   entries: WorksheetEntry[]
 }
 
+export interface AdvisingNote {
+  id: string
+  text: string
+  createdAt: string
+}
+
 export interface Student {
   id: string
   name: string
   pennId?: string
   graduationYear?: string
-  notes?: string
+  notes?: string              // legacy single-text field (migrated on read)
+  advisingNotes?: AdvisingNote[]
   worksheets: StudentWorksheet[]
   createdAt: string
   updatedAt: string
@@ -87,8 +94,10 @@ export interface TaskStore {
   tspProjects: TSPProject[]
   tspTasks: Task[]
   tspDates: DateEntry[]
+  tspNotes: Note[]
   inventoryItems: InventoryItem[]
   transactions: Transaction[]
+  tspExpenses: Expense[]
 }
 
 // ── TSP Types ────────────────────────────────────────────────────────────────
@@ -119,6 +128,7 @@ export interface TSPProject {
 export type InventoryItemType = 'book' | 'print' | 'shirt' | 'other'
 export type TransactionType = 'sale' | 'gift' | 'personal_copy' | 'consignment' | 'wholesale' | 'restock'
 export type PaymentMethod = 'cash' | 'venmo' | 'paypal' | 'shopify' | 'square' | 'consignment_wholesale' | 'none'
+export type ExpenseCategory = 'printing' | 'shipping' | 'supplies' | 'marketing' | 'venue' | 'fees' | 'other'
 
 export interface InventoryItem {
   id: string
@@ -129,6 +139,19 @@ export interface InventoryItem {
   description?: string
   price: number
   initialStock: number
+  tspProjectId?: string   // optional link to a TSP project for P&L attribution
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Expense {
+  id: string
+  date: string
+  amount: number
+  description: string
+  category: ExpenseCategory
+  projectId?: string   // optional TSP project ID
+  notes?: string
   createdAt: string
   updatedAt: string
 }

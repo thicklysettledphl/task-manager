@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react'
-import type { TaskStore, TSPProject, PipelineStage, Task, DateEntry } from '@/types'
+import type { TaskStore, TSPProject, PipelineStage, Task, DateEntry, Note, Expense } from '@/types'
 import type { View, Workspace } from '@/App'
 import TSPSidebar from './TSPSidebar'
+import Timeline from '@/components/Timeline'
 import TaskModal from '@/components/TaskModal'
 import DateModal from '@/components/DateModal'
+import FilterBar, { type FilterStatus } from '@/components/FilterBar'
+import { ExpenseModal } from './TSPInventoryDashboardPage'
 
 interface Props {
   slug: string
@@ -31,19 +34,6 @@ const COLORS = [
   '#f87171', '#fbbf24', '#e879f9', '#34d399', '#fb923c',
 ]
 
-const STATUS_LABELS: Record<string, string> = {
-  'not-started': 'Not Started',
-  'in-progress': 'In Progress',
-  done: 'Done',
-  blocked: 'Blocked',
-}
-const STATUS_COLORS: Record<string, string> = {
-  'not-started': 'bg-white/10 text-white/70',
-  'in-progress': 'bg-blue-500/25 text-blue-200',
-  done: 'bg-green-500/25 text-green-200',
-  blocked: 'bg-red-500/25 text-red-200',
-}
-
 const MONTH_NAMES = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function formatDate(iso: string) {
@@ -54,10 +44,13 @@ function formatDate(iso: string) {
 export default function TSPProjectPage({ slug, onNavigate, onSwitchWorkspace }: Props) {
   const [store, setStore] = useState<TaskStore>({
     projects: [], tasks: [], dates: [], notes: [], students: [],
-    tspProjects: [], tspTasks: [], tspDates: [], inventoryItems: [], transactions: [],
+    tspProjects: [], tspTasks: [], tspDates: [], tspNotes: [], tspExpenses: [], inventoryItems: [], transactions: [],
   })
+  const [filter, setFilter] = useState<FilterStatus>('all')
+  const [search, setSearch] = useState('')
   const [editTask, setEditTask] = useState<Task | null | undefined>(undefined)
   const [editDate, setEditDate] = useState<DateEntry | null | undefined>(undefined)
+  const [editExpense, setEditExpense] = useState<Expense | null | undefined>(undefined)
   const [showEditProject, setShowEditProject] = useState(false)
 
   const load = useCallback(async () => {
@@ -70,8 +63,31 @@ export default function TSPProjectPage({ slug, onNavigate, onSwitchWorkspace }: 
   const tspProjects = store.tspProjects ?? []
   const project = tspProjects.find((p) => p.slug === slug)
 
-  const projectTasks = (store.tspTasks ?? []).filter((t) => t.projectIds.includes(project?.id ?? ''))
-  const projectDates = (store.tspDates ?? []).filter((d) => d.projectIds.includes(project?.id ?? ''))
+  const pid = project?.id ?? ''
+  const q = search.toLowerCase()
+
+  const allProjectTasks = (store.tspTasks ?? []).filter((t) => t.projectIds.includes(pid))
+  const allProjectDates = (store.tspDates ?? []).filter((d) => d.projectIds.includes(pid))
+  const projectNotes = (store.tspNotes ?? []).filter((n) => {
+    if (!n.projectIds.includes(pid)) return false
+    if (q) return (
+      n.title.toLowerCase().includes(q) ||
+      n.body.toLowerCase().includes(q) ||
+      n.checklistItems.some((i) => i.text.toLowerCase().includes(q))
+    )
+    return true
+  })
+
+  const filteredTasks = allProjectTasks.filter((t) => {
+    if (filter !== 'all' && filter !== 'notes' && t.status !== filter) return false
+    if (q) return t.title.toLowerCase().includes(q) || (t.notes ?? '').toLowerCase().includes(q)
+    return true
+  })
+  const filteredDates = (filter === 'all' || filter === 'notes') && !q
+    ? allProjectDates
+    : q
+      ? allProjectDates.filter((d) => d.title.toLowerCase().includes(q))
+      : []
 
   if (!project) {
     return (
@@ -87,8 +103,8 @@ export default function TSPProjectPage({ slug, onNavigate, onSwitchWorkspace }: 
   const stageIdx = project.pipelineStages.findIndex((s) => s.id === project.currentStageId)
   const isPublication = project.isPublication ?? true
 
-  // TSP projects as "projects" for TaskModal (it expects Project[])
-  const projectsForModal = tspProjects.map((p) => ({ id: p.id, name: p.name, slug: p.slug, color: p.color }))
+  // TSP projects as "projects" for Timeline / modals
+  const projectsForTimeline = tspProjects.map((p) => ({ id: p.id, name: p.name, slug: p.slug, color: p.color }))
 
   return (
     <div className="flex min-h-screen">
@@ -100,21 +116,34 @@ export default function TSPProjectPage({ slug, onNavigate, onSwitchWorkspace }: 
         onSwitchWorkspace={onSwitchWorkspace}
       />
 
-      <main className="flex-1 flex flex-col min-h-screen overflow-y-auto">
-        {/* Header */}
+      <main className="flex-1 flex flex-col min-h-screen">
+        {/* ── Project header ── */}
         <div className="px-8 border-b border-white/10" style={{ paddingTop: 44, paddingBottom: 20 }}>
           <div className="flex items-center gap-3 mb-1">
             <span className="w-3 h-3 rounded-full shrink-0" style={{ background: project.color }} />
             <h1 className="text-xl font-bold text-white">{project.name}</h1>
             {project.url && (
-              <button onClick={() => window.api.openUrl(project.url!)} className="text-sm text-white/40 hover:text-white/80 transition-colors cursor-pointer">↗</button>
+              <button
+                onClick={() => window.api.openUrl(project.url!)}
+                className="text-sm text-white/40 hover:text-white/80 transition-colors cursor-pointer"
+              >
+                ↗
+              </button>
             )}
-            <button
-              onClick={() => setShowEditProject(true)}
-              className="ml-auto text-sm text-white/40 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg hover:bg-white/5"
-            >
-              Edit
-            </button>
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => setEditExpense(null)}
+                className="text-sm text-white/40 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg hover:bg-white/5"
+              >
+                + Expense
+              </button>
+              <button
+                onClick={() => setShowEditProject(true)}
+                className="text-sm text-white/40 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg hover:bg-white/5"
+              >
+                Edit
+              </button>
+            </div>
           </div>
           {project.artist && <div className="text-sm text-white/50 ml-6">{project.artist}</div>}
           {project.description && <div className="text-sm text-white/40 ml-6 mt-1">{project.description}</div>}
@@ -123,132 +152,145 @@ export default function TSPProjectPage({ slug, onNavigate, onSwitchWorkspace }: 
           )}
         </div>
 
-        {isPublication ? (
-          <>
-            {/* Pipeline */}
-            {project.pipelineStages.length > 0 && (
-              <div className="px-8 py-5 border-b border-white/10">
-                <div className="text-xs font-bold tracking-widest text-white/40 uppercase mb-3">Production Pipeline</div>
-                <div className="flex items-center gap-0">
-                  {project.pipelineStages.map((stage, i) => {
-                    const isCompleted = stageIdx > i
-                    const isCurrent = stageIdx === i
+        {/* ── Production Pipeline (publications only) ── */}
+        {isPublication && project.pipelineStages.length > 0 && (
+          <div className="px-8 py-5 border-b border-white/10">
+            <div className="text-xs font-bold tracking-widest text-white/40 uppercase mb-3">Production Pipeline</div>
+            <div className="flex items-center gap-0">
+              {project.pipelineStages.map((stage, i) => {
+                const isCompleted = stageIdx > i
+                const isCurrent = stageIdx === i
+                return (
+                  <div key={stage.id} className="flex items-center flex-1">
+                    <button
+                      onClick={async () => {
+                        await window.api.updateTSPProject(project.id, { currentStageId: stage.id })
+                        load()
+                      }}
+                      className={`flex-1 py-2 px-3 text-xs font-medium text-center transition-all cursor-pointer rounded-lg ${
+                        isCurrent
+                          ? 'text-white shadow-sm'
+                          : isCompleted
+                            ? 'text-white/60'
+                            : 'text-white/25 hover:text-white/50'
+                      }`}
+                      style={isCurrent ? { background: project.color + '33', border: `1px solid ${project.color}66` } : {}}
+                    >
+                      {isCompleted && <span className="mr-1 text-green-400">✓</span>}
+                      {stage.name}
+                    </button>
+                    {i < project.pipelineStages.length - 1 && (
+                      <span className={`text-xs mx-0.5 shrink-0 ${isCompleted ? 'text-white/40' : 'text-white/15'}`}>›</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── Sticky toolbar: filter + search + add buttons ── */}
+        <div className="sticky top-0 z-20 bg-[#0f0f11]/95 border-b border-white/10 px-6 py-4 flex items-center gap-3 flex-wrap">
+          <FilterBar current={filter} onChange={setFilter} showNotes />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search this project..."
+            className="flex-1 min-w-32 bg-white/5 rounded-lg px-3 py-2 text-sm text-white placeholder-white/30 outline-none focus:bg-white/10 transition-colors"
+          />
+          <div className="flex gap-2">
+            {filter === 'notes' ? (
+              <button
+                onClick={async () => {
+                  const note = await window.api.createTSPNote({
+                    title: '', body: '', checklistItems: [], projectIds: pid ? [pid] : [],
+                  })
+                  onNavigate({ type: 'tsp-notes', noteId: note.id })
+                }}
+                className="px-4 py-2 rounded-lg text-sm font-bold text-white bg-white/15 hover:bg-white/25 transition-colors cursor-pointer"
+              >
+                + New Note
+              </button>
+            ) : (
+              <>
+                <button
+                  onClick={() => setEditDate(null)}
+                  className="px-4 py-2 rounded-lg text-sm text-white/70 hover:text-white bg-white/5 hover:bg-white/10 transition-colors cursor-pointer"
+                >
+                  ◆ Add Date
+                </button>
+                <button
+                  onClick={() => setEditTask(null)}
+                  className="px-4 py-2 rounded-lg text-sm font-bold text-white bg-white/15 hover:bg-white/25 transition-colors cursor-pointer"
+                >
+                  + Add Task
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* ── Notes grid (when Notes filter active) ── */}
+        {filter === 'notes' ? (
+          <div className="px-6 py-6">
+            {projectNotes.length === 0 ? (
+              <div className="py-16 text-center text-white/25 text-sm">
+                No notes for this project yet.{' '}
+                <button
+                  onClick={async () => {
+                    const note = await window.api.createTSPNote({
+                      title: '', body: '', checklistItems: [], projectIds: pid ? [pid] : [],
+                    })
+                    onNavigate({ type: 'tsp-notes', noteId: note.id })
+                  }}
+                  className="underline hover:text-white/50 transition-colors cursor-pointer"
+                >
+                  Create one
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-3">
+                {[...projectNotes]
+                  .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+                  .map((note: Note) => {
+                    const preview = note.body.split('\n').find((l) => l.trim())
+                      || note.checklistItems.find((i) => i.text)?.text
+                      || ''
+                    const d = new Date(note.updatedAt)
+                    const diffDays = Math.floor((Date.now() - d.getTime()) / (1000 * 60 * 60 * 24))
+                    const relDate = diffDays === 0
+                      ? d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+                      : diffDays === 1 ? 'Yesterday'
+                      : diffDays < 7 ? d.toLocaleDateString([], { weekday: 'short' })
+                      : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
                     return (
-                      <div key={stage.id} className="flex items-center flex-1">
-                        <button
-                          onClick={async () => {
-                            await window.api.updateTSPProject(project.id, { currentStageId: stage.id })
-                            load()
-                          }}
-                          className={`flex-1 py-2 px-3 text-xs font-medium text-center transition-all cursor-pointer rounded-lg ${
-                            isCurrent
-                              ? 'text-white shadow-sm'
-                              : isCompleted
-                                ? 'text-white/60'
-                                : 'text-white/25 hover:text-white/50'
-                          }`}
-                          style={isCurrent ? { background: project.color + '33', border: `1px solid ${project.color}66` } : {}}
-                        >
-                          {isCompleted && <span className="mr-1 text-green-400">✓</span>}
-                          {stage.name}
-                        </button>
-                        {i < project.pipelineStages.length - 1 && (
-                          <span className={`text-xs mx-0.5 shrink-0 ${isCompleted ? 'text-white/40' : 'text-white/15'}`}>›</span>
-                        )}
-                      </div>
+                      <button
+                        key={note.id}
+                        onClick={() => onNavigate({ type: 'tsp-notes', noteId: note.id })}
+                        className="p-4 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 cursor-pointer transition-colors text-left"
+                      >
+                        <div className="text-sm font-medium text-white mb-1 truncate">
+                          {note.title || 'Untitled Note'}
+                        </div>
+                        <div className="text-xs text-white/40 truncate mb-2">{preview || 'No text'}</div>
+                        <div className="text-xs text-white/25">{relDate}</div>
+                      </button>
                     )
                   })}
-                </div>
               </div>
             )}
-
-            {/* Publication content: tasks + dates */}
-            <div className="px-8 py-6 flex flex-col gap-8">
-              {/* Tasks */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold tracking-widest text-white/40 uppercase">
-                    Tasks · {projectTasks.length}
-                  </span>
-                  <button
-                    onClick={() => setEditTask(null)}
-                    className="text-sm text-white/60 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10"
-                  >
-                    + Add Task
-                  </button>
-                </div>
-                {projectTasks.length === 0 ? (
-                  <div className="py-8 text-center text-white/25 text-sm border border-white/10 rounded-xl">
-                    No tasks yet.{' '}
-                    <button onClick={() => setEditTask(null)} className="underline hover:text-white/50 cursor-pointer transition-colors">
-                      Add one
-                    </button>
-                  </div>
-                ) : (
-                  <div className="border border-white/10 rounded-xl overflow-hidden">
-                    {[...projectTasks].sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map((task) => (
-                      <div
-                        key={task.id}
-                        onClick={() => setEditTask(task)}
-                        className="px-5 py-3 flex items-center gap-4 border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer transition-colors"
-                      >
-                        <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[task.status]}`}>
-                          {STATUS_LABELS[task.status]}
-                        </span>
-                        <span className={`flex-1 text-sm truncate ${task.status === 'done' ? 'line-through text-white/40' : 'text-white'}`}>
-                          {task.title}
-                        </span>
-                        <span className="text-xs text-white/40 shrink-0">{formatDate(task.dueDate)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Dates */}
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-xs font-bold tracking-widest text-white/40 uppercase">
-                    Dates &amp; Events · {projectDates.length}
-                  </span>
-                  <button
-                    onClick={() => setEditDate(null)}
-                    className="text-sm text-white/60 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10"
-                  >
-                    ◆ Add Date
-                  </button>
-                </div>
-                {projectDates.length === 0 ? (
-                  <div className="py-8 text-center text-white/25 text-sm border border-white/10 rounded-xl">
-                    No dates yet.
-                  </div>
-                ) : (
-                  <div className="border border-white/10 rounded-xl overflow-hidden">
-                    {[...projectDates].sort((a, b) => a.date.localeCompare(b.date)).map((d) => (
-                      <div
-                        key={d.id}
-                        onClick={() => setEditDate(d)}
-                        className="px-5 py-3 flex items-center gap-4 border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer transition-colors"
-                      >
-                        <span className="text-base leading-none text-white/40 shrink-0">◆</span>
-                        <span className="flex-1 text-sm text-white truncate">{d.title}</span>
-                        <span className="text-xs text-white/40 shrink-0">{formatDate(d.date)}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </div>
-          </>
+          </div>
         ) : (
-          /* Non-publication view: notes + timeline */
-          <ProjectGeneralView
-            project={project}
-            projectTasks={projectTasks}
-            projectDates={projectDates}
-            onEditTask={setEditTask}
-            onEditDate={setEditDate}
+          /* ── Timeline ── */
+          <Timeline
+            tasks={filteredTasks}
+            dates={filteredDates}
+            projects={projectsForTimeline}
+            onTaskClick={setEditTask}
+            onDateClick={setEditDate}
             onReload={load}
+            updateTask={window.api.updateTSPTask}
           />
         )}
       </main>
@@ -256,7 +298,7 @@ export default function TSPProjectPage({ slug, onNavigate, onSwitchWorkspace }: 
       {editTask !== undefined && (
         <TaskModal
           task={editTask}
-          projects={projectsForModal}
+          projects={projectsForTimeline}
           defaultProjectIds={[project.id]}
           onClose={() => setEditTask(undefined)}
           onSaved={load}
@@ -268,7 +310,7 @@ export default function TSPProjectPage({ slug, onNavigate, onSwitchWorkspace }: 
       {editDate !== undefined && (
         <DateModal
           entry={editDate}
-          projects={projectsForModal}
+          projects={projectsForTimeline}
           defaultProjectIds={[project.id]}
           onClose={() => setEditDate(undefined)}
           onSaved={load}
@@ -289,111 +331,15 @@ export default function TSPProjectPage({ slug, onNavigate, onSwitchWorkspace }: 
           }}
         />
       )}
-    </div>
-  )
-}
-
-// ── Non-publication general view ─────────────────────────────────────────────
-
-function ProjectGeneralView({ project, projectTasks, projectDates, onEditTask, onEditDate, onReload }: {
-  project: TSPProject
-  projectTasks: Task[]
-  projectDates: DateEntry[]
-  onEditTask: (t: Task | null) => void
-  onEditDate: (d: DateEntry | null) => void
-  onReload: () => void
-}) {
-  const [notes, setNotes] = useState(project.notes ?? '')
-
-  async function saveNotes(value: string) {
-    await window.api.updateTSPProject(project.id, { notes: value || undefined })
-    onReload()
-  }
-
-  // Combined timeline: tasks (by dueDate) and dates (by date), sorted together
-  type TimelineItem =
-    | { kind: 'task'; data: Task }
-    | { kind: 'date'; data: DateEntry }
-
-  const timelineItems: TimelineItem[] = [
-    ...projectTasks.map((t) => ({ kind: 'task' as const, data: t })),
-    ...projectDates.map((d) => ({ kind: 'date' as const, data: d })),
-  ].sort((a, b) => {
-    const dateA = a.kind === 'task' ? a.data.dueDate : a.data.date
-    const dateB = b.kind === 'task' ? b.data.dueDate : b.data.date
-    return dateA.localeCompare(dateB)
-  })
-
-  return (
-    <div className="px-8 py-6 flex flex-col gap-8">
-      {/* Notes */}
-      <div>
-        <div className="text-xs font-bold tracking-widest text-white/40 uppercase mb-3">Notes</div>
-        <textarea
-          value={notes}
-          onChange={(e) => setNotes(e.target.value)}
-          onBlur={(e) => saveNotes(e.target.value)}
-          rows={5}
-          placeholder="Add notes about this project..."
-          className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-white/25 placeholder-white/20 resize-none leading-relaxed"
+      {editExpense !== undefined && (
+        <ExpenseModal
+          expense={editExpense}
+          projects={tspProjects}
+          defaultProjectId={project.id}
+          onClose={() => setEditExpense(undefined)}
+          onSaved={load}
         />
-      </div>
-
-      {/* Timeline */}
-      <div>
-        <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-bold tracking-widest text-white/40 uppercase">Timeline</span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => onEditDate(null)}
-              className="text-sm text-white/60 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10"
-            >
-              ◆ Add Date
-            </button>
-            <button
-              onClick={() => onEditTask(null)}
-              className="text-sm text-white/60 hover:text-white transition-colors cursor-pointer px-3 py-1 rounded-lg bg-white/5 hover:bg-white/10"
-            >
-              + Add Task
-            </button>
-          </div>
-        </div>
-        {timelineItems.length === 0 ? (
-          <div className="py-8 text-center text-white/25 text-sm border border-white/10 rounded-xl">
-            No tasks or dates yet.
-          </div>
-        ) : (
-          <div className="border border-white/10 rounded-xl overflow-hidden">
-            {timelineItems.map((item) =>
-              item.kind === 'task' ? (
-                <div
-                  key={item.data.id}
-                  onClick={() => onEditTask(item.data)}
-                  className="px-5 py-3 flex items-center gap-4 border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer transition-colors"
-                >
-                  <span className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${STATUS_COLORS[item.data.status]}`}>
-                    {STATUS_LABELS[item.data.status]}
-                  </span>
-                  <span className={`flex-1 text-sm truncate ${item.data.status === 'done' ? 'line-through text-white/40' : 'text-white'}`}>
-                    {item.data.title}
-                  </span>
-                  <span className="text-xs text-white/40 shrink-0">{formatDate(item.data.dueDate)}</span>
-                </div>
-              ) : (
-                <div
-                  key={item.data.id}
-                  onClick={() => onEditDate(item.data)}
-                  className="px-5 py-3 flex items-center gap-4 border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer transition-colors"
-                >
-                  <span className="text-xs px-2 py-0.5 rounded-full shrink-0 bg-white/10 text-white/50">◆ Date</span>
-                  <span className="flex-1 text-sm text-white truncate">{item.data.title}</span>
-                  <span className="text-xs text-white/40 shrink-0">{formatDate(item.data.date)}</span>
-                </div>
-              )
-            )}
-          </div>
-        )}
-      </div>
+      )}
     </div>
   )
 }

@@ -19,7 +19,7 @@ function formatDate(iso: string) {
 export default function TSPDatesPage({ onNavigate, onSwitchWorkspace }: Props) {
   const [store, setStore] = useState<TaskStore>({
     projects: [], tasks: [], dates: [], notes: [], students: [],
-    tspProjects: [], tspTasks: [], tspDates: [], inventoryItems: [], transactions: [],
+    tspProjects: [], tspTasks: [], tspDates: [], tspNotes: [], tspExpenses: [], inventoryItems: [], transactions: [],
   })
   const [editDate, setEditDate] = useState<DateEntry | null | undefined>(undefined)
 
